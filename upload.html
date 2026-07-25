@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#05060b" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Document Upload — Sai Kripa Group</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#080a11;--card:#111728;--line:#1f2740;--gold:#d9ac42;--gold-l:#f2cf7e;
+        --txt:#e8ebf2;--mut:#8b93a8;--ok:#3fae6f;--bad:#e05a4c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:Manrope,system-ui,sans-serif;font-size:15px}
+  .wrap{max-width:520px;margin:0 auto;padding:26px 16px 70px}
+  .mark{width:58px;height:58px;margin:0 auto 16px;border-radius:50%;border:2px solid var(--gold);
+        display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;
+        color:var(--gold-l);background:#0c1226}
+  h1{font-size:21px;margin:0 0 4px;text-align:center;font-weight:700}
+  .sub{text-align:center;color:var(--mut);font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 22px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .who{text-align:center;padding:14px;margin-bottom:16px}
+  .who b{display:block;font-size:18px;color:var(--gold-l)}
+  .who span{color:var(--mut);font-size:12.5px}
+  label.f{display:block;margin-bottom:14px}
+  label.f>span{display:block;color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.07em;
+               text-transform:uppercase;margin-bottom:6px}
+  input[type=text],textarea{width:100%;background:#0b0f1c;color:var(--txt);border:1px solid var(--line);
+        border-radius:10px;padding:11px 12px;font:inherit;font-size:14px}
+  textarea{min-height:64px;resize:vertical}
+  input:focus,textarea:focus{outline:none;border-color:var(--gold)}
+  .drop{border:2px dashed #2b3550;border-radius:12px;padding:26px 14px;text-align:center;cursor:pointer;
+        background:#0b0f1c;transition:.15s}
+  .drop:hover,.drop.on{border-color:var(--gold);background:#141021}
+  .drop b{display:block;color:var(--gold-l);margin-bottom:4px}
+  .drop span{color:var(--mut);font-size:12.5px}
+  .btn{display:block;width:100%;background:linear-gradient(180deg,#e9c368,#c2922f);color:#20180a;
+       border:0;border-radius:11px;padding:14px;font:inherit;font-weight:800;font-size:15px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .f-it{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .f-it:last-child{border-bottom:0}
+  .f-it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .f-it .s{color:var(--mut);font-size:11.5px;flex:none}
+  .f-it .x{background:none;border:0;color:var(--mut);font-size:19px;cursor:pointer;padding:0 2px}
+  .st{flex:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+  .st.w{background:#3a2d10;color:#ffd98a} .st.d{background:#12301f;color:#8de0b0}
+  .st.e{background:#3a1614;color:#ffb3aa}
+  .msg{border-radius:10px;padding:13px;font-size:13.5px;line-height:1.6;margin-bottom:14px}
+  .msg.ok{background:#12301f;border:1px solid #24603c;color:#b6ecc9}
+  .msg.err{background:#3a1614;border:1px solid #6b2a24;color:#ffc7c0}
+  .hint{color:var(--mut);font-size:12px;line-height:1.7;text-align:center;margin-top:18px}
+  .need{color:var(--mut);font-size:13px;line-height:1.9;margin:0;padding-left:18px}
+  .need b{color:var(--txt)}
+  .center{text-align:center}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="mark">SK</div>
+  <h1>Documents Upload</h1>
+  <p class="sub">Sai Kripa Group</p>
+
+  <div id="stage"><div class="box center" style="color:var(--mut)">Link check kar raha hoon…</div></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var CFG=window.SKG||{};
+var URL_=String(CFG.SUPABASE_URL||'').replace(/\/+$/,'');
+var KEY=String(CFG.SUPABASE_ANON_KEY||'');
+var BUCKET='docs';
+var MAXMB=25;
+
+var stage=document.getElementById('stage');
+var token=(location.search.match(/[?&]t=([^&]+)/)||[])[1]||'';
+var files=[];
+var clientName='';
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function kb(n){
+  if(n<1024) return n+' B';
+  if(n<1048576) return (n/1024).toFixed(0)+' KB';
+  return (n/1048576).toFixed(1)+' MB';
+}
+function head(extra){
+  var h={'apikey':KEY,'Authorization':'Bearer '+KEY};
+  for(var k in (extra||{})) h[k]=extra[k];
+  return h;
+}
+function rpc(fn,args){
+  return fetch(URL_+'/rest/v1/rpc/'+fn,{
+    method:'POST', headers:head({'Content-Type':'application/json'}), body:JSON.stringify(args)
+  }).then(function(r){
+    return r.text().then(function(t){
+      var j=null; try{ j=t?JSON.parse(t):null; }catch(e){}
+      if(!r.ok) throw new Error((j&&(j.message||j.hint))||('HTTP '+r.status));
+      return j;
+    });
+  });
+}
+function bad(title,detail){
+  stage.innerHTML='<div class="msg err"><b>'+esc(title)+'</b><br>'+esc(detail||'')+'</div>'+
+    '<p class="hint">Sai Kripa Group ko WhatsApp par bata dein — naya link bhej denge.<br>'+
+    '<b>98877 05993</b></p>';
+}
+
+/* ---------- link check ---------- */
+if(!URL_||!KEY||KEY.indexOf('PASTE_')===0){
+  bad('Setup adhura hai','config.js me Supabase key nahi daali gayi hai.');
+  return;
+}
+if(!token){
+  bad('Link adhura hai','Aapne jo link kholi hai usme code nahi hai. WhatsApp par bheja gaya poora link kholein.');
+  return;
+}
+
+rpc('upload_lookup',{tok:token}).then(function(rows){
+  if(!rows||!rows.length||!rows[0].client_name){
+    bad('Link kaam nahi kar rahi','Ye link purani ho gayi hai ya galat hai.');
+    return;
+  }
+  clientName=rows[0].client_name;
+  form();
+}).catch(function(e){
+  bad('Connection nahi bana', e.message);
+});
+
+/* ---------- form ---------- */
+function form(){
+  stage.innerHTML=
+    '<div class="box who"><span>Documents ke liye</span><b>'+esc(clientName)+'</b></div>'+
+    '<div class="box">'+
+      '<label class="f"><span>Kaunse documents chahiye</span></label>'+
+      '<ul class="need">'+
+        '<li><b>Form 16</b> / salary slip</li>'+
+        '<li><b>Bank statement</b> (April se March)</li>'+
+        '<li><b>Invoice / bills</b></li>'+
+        '<li><b>Investment proof</b> (80C, 80D — LIC, PPF, insurance)</li>'+
+        '<li><b>PAN / Aadhaar</b> copy</li>'+
+        '<li>Purana <b>ITR</b> (agar hai)</li>'+
+      '</ul>'+
+      '<p class="hint" style="text-align:left;margin-top:10px">Jo aapke paas hai wahi bhej dein — sab ek saath zaruri nahi. Photo ya PDF dono chalega.</p>'+
+    '</div>'+
+    '<div class="box">'+
+      '<div class="drop" id="drop"><b>📎 File chunein</b><span>Photo ya PDF · ek se zyada bhi chal jayengi</span></div>'+
+      '<input type="file" id="fi" multiple hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv" />'+
+      '<div id="list" style="margin-top:12px"></div>'+
+      '<label class="f" style="margin-top:14px"><span>Kuch kehna ho to (optional)</span>'+
+        '<textarea id="note" placeholder="Jaise: bank statement ki 2 photo hain"></textarea></label>'+
+      '<button class="btn" id="go" disabled>Bhejein</button>'+
+    '</div>'+
+    '<p class="hint">Aapki file seedhi Sai Kripa Group ke secure account me jayegi.<br>'+
+    'Is page se aap kisi ka data dekh nahi sakte — sirf bhej sakte hain.</p>';
+
+  var fi=document.getElementById('fi'), drop=document.getElementById('drop');
+  drop.onclick=function(){ fi.click(); };
+  drop.ondragover=function(e){ e.preventDefault(); drop.classList.add('on'); };
+  drop.ondragleave=function(){ drop.classList.remove('on'); };
+  drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('on'); add(e.dataTransfer.files); };
+  fi.onchange=function(){ add(fi.files); fi.value=''; };
+  document.getElementById('go').onclick=send;
+}
+
+function add(list){
+  for(var i=0;i<list.length;i++){
+    var f=list[i];
+    if(f.size>MAXMB*1048576){ alert('"'+f.name+'" bahut badi hai ('+kb(f.size)+').\nMax '+MAXMB+' MB.'); continue; }
+    if(!files.some(function(x){ return x.f.name===f.name&&x.f.size===f.size; })) files.push({f:f,st:''});
+  }
+  paint();
+}
+function paint(){
+  var l=document.getElementById('list');
+  l.innerHTML=files.map(function(x,i){
+    var tag = x.st==='up'?'<span class="st w">bhej raha…</span>'
+            : x.st==='ok'?'<span class="st d">✓ pahunch gayi</span>'
+            : x.st==='err'?'<span class="st e">fail</span>':'';
+    return '<div class="f-it"><span class="n">'+esc(x.f.name)+'</span>'+
+      '<span class="s">'+kb(x.f.size)+'</span>'+tag+
+      (x.st?'':'<button class="x" data-rm="'+i+'" title="hatao">&times;</button>')+'</div>';
+  }).join('');
+  l.onclick=function(e){
+    var b=e.target.closest('[data-rm]'); if(!b) return;
+    files.splice(+b.dataset.rm,1); paint();
+  };
+  document.getElementById('go').disabled=!files.length;
+}
+
+function safeName(n){
+  return String(n).replace(/[^\w.\- ]+/g,'_').replace(/\s+/g,'_').slice(-70);
+}
+
+function send(){
+  var go=document.getElementById('go');
+  go.disabled=true; go.textContent='Bhej raha hoon…';
+  var note=document.getElementById('note').value.slice(0,400);
+  var doneN=0, failN=0;
+  var chain=Promise.resolve();
+
+  files.forEach(function(x){
+    if(x.st==='ok') return;
+    chain=chain.then(function(){
+      x.st='up'; paint();
+      var path=token+'/'+Date.now()+'-'+safeName(x.f.name);
+      return fetch(URL_+'/storage/v1/object/'+BUCKET+'/'+path,{
+        method:'POST',
+        headers:head({'Content-Type':x.f.type||'application/octet-stream','x-upsert':'false'}),
+        body:x.f
+      }).then(function(r){
+        if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+' '+t.slice(0,90)); });
+        return rpc('upload_register',{tok:token,fname:x.f.name,fpath:path,fsize:x.f.size,fnote:note});
+      }).then(function(){
+        x.st='ok'; doneN++; paint();
+      }).catch(function(e){
+        x.st='err'; failN++; paint();
+        console.error('upload fail',x.f.name,e);
+      });
+    });
+  });
+
+  chain.then(function(){
+    go.textContent='Bhejein';
+    if(failN&&!doneN){
+      stage.insertAdjacentHTML('afterbegin',
+        '<div class="msg err"><b>Bhej nahi paye</b><br>Internet check karke dobara koshish karein, ya seedha WhatsApp par bhej dein — <b>98877 05993</b></div>');
+      go.disabled=false;
+    } else {
+      stage.innerHTML='<div class="msg ok"><b>✅ Ho gaya — '+doneN+' file pahunch gayi'+
+        (failN?(', '+failN+' fail hui'):'')+'</b><br>Sai Kripa Group ko mil gayi hain. '+
+        'Kuch aur chahiye hoga to WhatsApp par bata denge.</div>'+
+        '<div class="box center"><b style="color:var(--gold-l)">Dhanyavaad 🙏</b><br>'+
+        '<span style="color:var(--mut);font-size:13px">'+esc(clientName)+'</span></div>'+
+        '<p class="hint">Aur file bhejni ho to isi link ko dobara khol lein.<br><b>98877 05993</b></p>';
+    }
+  });
+}
+})();
+</script>
+</body>
+</html>
