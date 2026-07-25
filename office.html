@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#080a11" />
 <meta name="robots" content="noindex,nofollow" />
 <title>Office Panel — Sai Kripa Group</title>
+
+<!-- icon + PWA: bhaiya isko phone pe app ki tarah install kar sakte hain -->
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/office.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="SK Office" />
+<meta name="mobile-web-app-capable" content="yes" />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -166,6 +177,8 @@
       <button data-v="dead">Due Dates <span class="pill" id="pDead" hidden>0</span></button>
       <button data-v="cases">Cases &amp; Notices <span class="pill" id="pCase" hidden>0</span></button>
       <button data-v="inv">Invoices <span class="pill" id="pInv" hidden>0</span></button>
+      <button data-v="leads">Leads <span class="pill" id="pLead" hidden>0</span></button>
+      <button data-v="docs">Documents <span class="pill" id="pDoc" hidden>0</span></button>
       <button data-v="set">Settings</button>
     </nav>
   </header>
@@ -176,6 +189,8 @@
     <section class="view" id="v-dead"></section>
     <section class="view" id="v-cases"></section>
     <section class="view" id="v-inv"></section>
+    <section class="view" id="v-leads"></section>
+    <section class="view" id="v-docs"></section>
     <section class="view" id="v-set"></section>
   </div>
 </div>
@@ -202,16 +217,17 @@ var DEF={
   tplCase:'Namaste {client} ji 🙏\n\nAapke case ka update —\n\n📁 Case: {kind}\n🔖 Ref: {ref}\n📊 Status: *{status}*\n\n{extra}\n\n— {owner}, {firm}',
   tplInv:'Namaste {client} ji 🙏\n\nAapka invoice ready hai —\n\n🧾 Invoice: {invno}\n💰 Amount: ₹{amount}\n📅 Date: {date}\n\nPayment: {pay}\n\nDhanyavaad 🙏\n— {owner}, {firm}',
   tplPay:'Namaste {client} ji 🙏\n\nHalka sa reminder — invoice {invno} ka payment ₹{amount} pending hai ({age}).\n\nPayment: {pay}\n\nAgar already kar diya ho to screenshot bhej dein, main record update kar dunga.\n\n— {owner}, {firm}',
-  tplReview:'Namaste {client} ji 🙏\n\nAapka kaam successfully complete ho gaya ✅\n\nAgar service acchi lagi ho to 1 minute nikaal ke Google par review de dijiye — isse humein bahut help milti hai 🙏\n\n⭐ {review}\n\nDhanyavaad!\n— {owner}, {firm}'
+  tplReview:'Namaste {client} ji 🙏\n\nAapka kaam successfully complete ho gaya ✅\n\nAgar service acchi lagi ho to 1 minute nikaal ke Google par review de dijiye — isse humein bahut help milti hai 🙏\n\n⭐ {review}\n\nDhanyavaad!\n— {owner}, {firm}',
+  tplUpload:'Namaste {client} ji 🙏\n\nDocuments bhejne ke liye ye link kholein —\n{link}\n\nUsme photo ya PDF seedha upload kar dein (Form 16, bank statement, bills, investment proof). WhatsApp par ek-ek bhejne ki zarurat nahi.\n\nLink sirf aapke liye hai, kisi ko forward na karein.\n\n— {owner}, {firm}'
 };
-var DB={clients:[],cases:[],invoices:[],done:{},rem:{},settings:{},v:1};
+var DB={clients:[],cases:[],invoices:[],docs:[],leads:[],done:{},rem:{},settings:{},v:2};
 
 function load(){
   try{
     var raw=JSON.parse(localStorage.getItem(KEY));
     if(raw&&raw.clients){
       DB=raw;
-      DB.cases=DB.cases||[]; DB.invoices=DB.invoices||[];
+      DB.cases=DB.cases||[]; DB.invoices=DB.invoices||[]; DB.docs=DB.docs||[]; DB.leads=DB.leads||[];
       DB.done=DB.done||{}; DB.rem=DB.rem||{};
     }
   }catch(e){}
@@ -319,6 +335,23 @@ var SB={
     });
   },
   sel:function(t,q){ return SB.req('GET','/'+t+(q||'?select=*')); },
+  /* document dekhne ke liye 1 ghante ka private link */
+  sign:function(path){
+    return fetch(SB.url+'/storage/v1/object/sign/docs/'+path,{
+      method:'POST',
+      headers:{'apikey':SB.key,'Authorization':'Bearer '+(SB.tok||SB.key),'Content-Type':'application/json'},
+      body:JSON.stringify({expiresIn:3600})
+    }).then(function(r){
+      if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+' '+t.slice(0,120)); });
+      return r.json();
+    }).then(function(j){ return SB.url+'/storage/v1'+j.signedURL; });
+  },
+  rmFile:function(path){
+    return fetch(SB.url+'/storage/v1/object/docs/'+path,{
+      method:'DELETE',
+      headers:{'apikey':SB.key,'Authorization':'Bearer '+(SB.tok||SB.key)}
+    });
+  },
   up:function(t,row){ return SB.req('POST','/'+t,row,'resolution=merge-duplicates,return=minimal'); },
   del:function(t,val,col){ return SB.req('DELETE','/'+t+'?'+(col||'id')+'=eq.'+encodeURIComponent(val)); }
 };
@@ -332,13 +365,14 @@ var MAP={
     out:function(o){ return {
       id:o.id, name:o.name, entity:nn(o.entity), phone:nn(o.phone),
       pan:nn(o.pan), gstin:nn(o.gstin), services:o.services||[],
-      gst_scheme:nn(o.gstScheme), tm_date:nn(o.tmDate), tm_no:nn(o.tmNo), notes:nn(o.notes)
+      gst_scheme:nn(o.gstScheme), tm_date:nn(o.tmDate), tm_no:nn(o.tmNo), notes:nn(o.notes),
+      upload_token:nn(o.token)
     }; },
     "in":function(r){ return {
       id:r.id, name:r.name||'', entity:r.entity||'', phone:r.phone||'',
       pan:r.pan||'', gstin:r.gstin||'', services:r.services||[],
       gstScheme:r.gst_scheme||'monthly', tmDate:r.tm_date||'', tmNo:r.tm_no||'',
-      notes:r.notes||'', custom:[]
+      notes:r.notes||'', token:r.upload_token||'', custom:[]
     }; }
   },
   cases:{
@@ -411,9 +445,20 @@ function syncDown(){
     if(pend.length){ var pe=new Error('upload pending'); pe.pending=true; throw pe; }
     return Promise.all([
       SB.sel('clients'), SB.sel('cases'), SB.sel('invoices'),
-      SB.sel('deadline_marks'), SB.sel('app_settings')
+      SB.sel('deadline_marks'), SB.sel('app_settings'),
+      SB.sel('documents','?select=*&order=created_at.desc').catch(function(){ return []; }),
+      SB.sel('leads','?select=*&order=created_at.desc').catch(function(){ return []; })
     ]);
   }).then(function(r){
+    DB.docs=(r[5]||[]).map(function(d){
+      return {id:d.id,cid:d.client_id||'',name:d.name||'',path:d.path||'',
+              size:Number(d.size||0),note:d.note||'',at:String(d.created_at||'').slice(0,10)};
+    });
+    DB.leads=(r[6]||[]).map(function(l){
+      return {id:l.id,name:l.name||'',phone:l.phone||'',service:l.service||'',
+              message:l.message||'',source:l.source||'',status:l.status||'New',
+              at:String(l.created_at||'').slice(0,10)};
+    });
     DB.clients=(r[0]||[]).map(MAP.clients['in']);
     DB.cases  =(r[1]||[]).map(MAP.cases['in']);
     DB.invoices=(r[2]||[]).map(MAP.invoices['in']);
@@ -674,6 +719,7 @@ function rDash(){
     kpi(DB.clients.length,'Clients','')+
     kpi(openCases.length,'Open cases','blue')+
     kpi('₹'+money(unpaidAmt),'Payment pending','ok')+
+    kpi(newLeads(),'Naye leads','warn')+
   '</div>';
 
   h+='<div class="box"><h3>Aaj ke reminders ('+q.length+')</h3>';
@@ -732,9 +778,11 @@ function rClients(){
     h+='<div class="it"><div class="m"><b>'+esc(c.name)+' '+(c.entity?'<span class="tag t-mut">'+esc(c.entity)+'</span>':'')+'</b>'+
       '<small>'+(c.phone?esc(c.phone)+' · ':'')+(svc||'koi service select nahi')+'</small></div>'+
       (np?'<span class="tag t-warn">'+np+' due (30d)</span>':'')+
+      (docsOf(c.id)?'<span class="tag t-blue">📎 '+docsOf(c.id)+'</span>':'')+
       '<div class="acts">'+
       (c.phone?'<a class="btn wa sm" href="'+wa(c.phone,'Namaste '+c.name+' ji 🙏')+'" target="_blank" rel="noreferrer">WA</a>':'')+
       '<button class="btn sm" data-act="cedit" data-id="'+c.id+'">Edit</button>'+
+      '<button class="btn sm p" data-act="clink" data-id="'+c.id+'">📎 Link</button>'+
       '<button class="btn sm" data-act="cdocs" data-id="'+c.id+'">Docs maango</button>'+
       '<button class="btn sm dgr" data-act="cdel" data-id="'+c.id+'">Delete</button>'+
       '</div></div>';
@@ -1025,6 +1073,76 @@ function printInv(id){
   window.print();
 }
 
+/* ---------------- render: leads (website bot se) ---------------- */
+var LSTAT=['New','Contacted','Converted','Lost'];
+var lFilter='open';
+function newLeads(){ return (DB.leads||[]).filter(function(l){ return l.status==='New'; }).length; }
+
+function rLeads(){
+  var list=(DB.leads||[]).filter(function(l){
+    if(lFilter==='open') return l.status==='New'||l.status==='Contacted';
+    if(lFilter==='all') return true;
+    return l.status===lFilter;
+  });
+  var h='<div class="sec-h"><h2>Leads ('+(DB.leads||[]).length+')</h2>'+
+    '<select id="lF" style="max-width:150px">'+
+      [['open','Naye + follow-up'],['all','Sab']].concat(LSTAT.map(function(s){ return [s,s]; }))
+      .map(function(x){ return '<option value="'+x[0]+'" '+(lFilter===x[0]?'selected':'')+'>'+x[1]+'</option>'; }).join('')+
+    '</select></div>';
+
+  h+='<div class="note">Website ke chat bot se jo inquiry aayegi wo yahan apne aap aa jayegi — naam, phone aur poori baat-cheet ke saath. '+
+     '<b>WhatsApp</b> daba ke turant follow-up karein, kaam pakka ho jaye to <b>Client banao</b> daba dein.</div>';
+
+  h+='<div class="box"><div class="list">';
+  if(!list.length) h+='<div class="empty">'+((DB.leads||[]).length?'Is filter me kuch nahi':'Abhi koi lead nahi aayi')+'</div>';
+  list.forEach(function(l){
+    var si=LSTAT.indexOf(l.status);
+    h+='<div class="it"><div class="m"><b>'+esc(l.name||'(naam nahi diya)')+' '+
+      '<span class="tag '+(si===0?'t-warn':si===1?'t-blue':si===2?'t-ok':'t-mut')+'">'+esc(l.status)+'</span></b>'+
+      '<small>'+(l.phone?esc(l.phone)+' · ':'')+esc(l.service||'—')+' · '+fmt(l.at)+
+      (l.message?'<br>&ldquo;'+esc(l.message.slice(0,150))+(l.message.length>150?'…':'')+'&rdquo;':'')+'</small></div>'+
+      '<div class="acts">'+
+      (l.phone?'<a class="btn wa sm" href="'+wa(l.phone,'Namaste'+(l.name?' '+l.name:'')+' ji 🙏\n\nSai Kripa Group se baat kar raha hoon. Aapne website par '+(l.service||'inquiry')+' ke baare me poochha tha — bataiye kya help chahiye?\n\n— '+S().owner)+'" target="_blank" rel="noreferrer">WhatsApp</a>':'')+
+      (si<3?'<button class="btn sm" data-act="lnext" data-id="'+l.id+'">→ '+LSTAT[si+1]+'</button>':'')+
+      (l.phone?'<button class="btn sm p" data-act="lmake" data-id="'+l.id+'">Client banao</button>':'')+
+      '<button class="btn sm dgr" data-act="ldel" data-id="'+l.id+'">Del</button>'+
+      '</div></div>';
+  });
+  h+='</div></div>';
+  document.getElementById('v-leads').innerHTML=h;
+  var f=document.getElementById('lF');
+  if(f) f.onchange=function(){ lFilter=this.value; rLeads(); };
+}
+
+/* ---------------- render: documents ---------------- */
+function kbSize(n){
+  if(!n) return '—';
+  if(n<1048576) return (n/1024).toFixed(0)+' KB';
+  return (n/1048576).toFixed(1)+' MB';
+}
+function docsOf(cid){ return (DB.docs||[]).filter(function(d){ return d.cid===cid; }).length; }
+
+function rDocs(){
+  var list=(DB.docs||[]).slice().sort(function(a,b){ return a.at<b.at?1:-1; });
+  var h='<div class="sec-h"><h2>Documents ('+list.length+')</h2></div>'+
+    '<div class="note">Client ko link bhejne ke liye <b>Clients</b> tab me uske aage <b>📎 Link</b> dabaiye — WhatsApp message ready mil jayega. '+
+    'Client apni file khud upload kar dega aur wo yahan aa jayegi.<br><br>'+
+    'Client us link se <b>sirf upload</b> kar sakta hai — kisi ka data dekh, download ya delete nahi kar sakta.</div>'+
+    '<div class="box"><div class="list">';
+  if(!list.length) h+='<div class="empty">Abhi koi document nahi aaya</div>';
+  list.forEach(function(d){
+    h+='<div class="it"><div class="m"><b>'+esc(d.name)+'</b><small>'+
+      esc(cname(d.cid))+' · '+fmt(d.at)+' · '+kbSize(d.size)+
+      (d.note?' · &ldquo;'+esc(d.note)+'&rdquo;':'')+'</small></div>'+
+      '<div class="acts">'+
+      '<button class="btn sm p" data-act="dget" data-id="'+d.id+'">Kholo</button>'+
+      '<button class="btn sm dgr" data-act="ddel" data-id="'+d.id+'">Del</button>'+
+      '</div></div>';
+  });
+  h+='</div></div>';
+  document.getElementById('v-docs').innerHTML=h;
+}
+
 /* ---------------- render: settings ---------------- */
 function rSet(){
   var s=S();
@@ -1181,6 +1299,31 @@ document.addEventListener('click',function(e){
     }
   }
   else if(a==='cdocs') sendDocs(id);
+  else if(a==='clink'){
+    var cl=cli(id); if(!cl) return;
+    if(!cl.token){
+      cl.token=uid().replace(/-/g,'');
+      cUp('clients',MAP.clients.out(cl)); save();
+    }
+    var link=location.origin+'/upload.html?t='+cl.token;
+    var mm=base(cl); mm.link=link;
+    if(cl.phone) window.open(wa(cl.phone,fill(S().tplUpload,mm)),'_blank');
+    else { copyText(link); toast('Phone nahi hai — link copy kar diya'); }
+  }
+  else if(a==='dget'){
+    var dg=(DB.docs||[]).filter(function(x){ return x.id===id; })[0]; if(!dg) return;
+    toast('Link bana raha hoon…');
+    SB.sign(dg.path).then(function(u){ window.open(u,'_blank'); })
+      .catch(function(er){ logErr('FILE OPEN FAIL '+er.message); toast('File nahi khuli — Settings me Error log dekhein'); });
+  }
+  else if(a==='ddel'){
+    var dd=(DB.docs||[]).filter(function(x){ return x.id===id; })[0]; if(!dd) return;
+    if(!confirm('"'+dd.name+'" delete karna hai?\nFile hamesha ke liye hat jayegi.')) return;
+    SB.rmFile(dd.path).then(function(){ return SB.del('documents',id); }).then(function(){
+      DB.docs=(DB.docs||[]).filter(function(x){ return x.id!==id; });
+      save(); redraw(); toast('Delete ho gaya');
+    }).catch(function(er){ logErr('DOC DEL FAIL '+er.message); toast('Delete fail — Error log dekhein'); });
+  }
   else if(a==='remind') sendDue(k);
   else if(a==='dmark'){ if(DB.done[k]) delete DB.done[k]; else DB.done[k]=true; cMark(k); save(); redraw(); }
   else if(a==='knew') caseForm('');
@@ -1235,6 +1378,28 @@ document.addEventListener('click',function(e){
   else if(a==='pushlocal'){
     if(confirm('Is browser ka saara data cloud pe bhejna hai?\n(Same data ho to overwrite ho jayega — nuksaan nahi hoga)')) pushAll();
   }
+  else if(a==='lnext'){
+    var ld=(DB.leads||[]).filter(function(x){ return x.id===id; })[0]; if(!ld) return;
+    var li=LSTAT.indexOf(ld.status);
+    if(li<3){ ld.status=LSTAT[li+1]; cUp('leads',{id:ld.id,status:ld.status}); save(); redraw(); toast('Lead: '+ld.status); }
+  }
+  else if(a==='ldel'){
+    if(!confirm('Lead delete karni hai?')) return;
+    DB.leads=(DB.leads||[]).filter(function(x){ return x.id!==id; });
+    cDel('leads',id); save(); redraw();
+  }
+  else if(a==='lmake'){
+    var lm=(DB.leads||[]).filter(function(x){ return x.id===id; })[0]; if(!lm) return;
+    var exist=DB.clients.filter(function(c){ return phone(c.phone)===phone(lm.phone); })[0];
+    if(exist){ toast('Ye phone pehle se client hai: '+exist.name); return; }
+    if(!confirm('"'+(lm.name||lm.phone)+'" ko client bana dein?\n\nPhir Clients tab me jaake uski services tick kar dijiye — due dates khud ban jayengi.')) return;
+    var nc={id:uid(),name:lm.name||('Lead '+lm.phone),entity:'Individual',phone:lm.phone,
+            pan:'',gstin:'',services:[],gstScheme:'monthly',tmDate:'',tmNo:'',
+            notes:'Website chat se aaya lead'+(lm.service?' — '+lm.service:''),token:'',custom:[]};
+    DB.clients.push(nc); cUp('clients',MAP.clients.out(nc));
+    lm.status='Converted'; cUp('leads',{id:lm.id,status:'Converted'});
+    save(); redraw(); toast('Client ban gaya — ab services tick kar dijiye');
+  }
   else if(a==='errlog') showErrLog();
   else if(a==='diag') runDiag();
   else if(a==='diagcopy') copySheet();
@@ -1261,12 +1426,14 @@ document.getElementById('tabs').addEventListener('click',function(e){
 
 /* ---------------- draw ---------------- */
 function redraw(){
-  rDash(); rClients(); rDead(); rCases(); rInv(); rSet();
+  rDash(); rClients(); rDead(); rCases(); rInv(); rLeads(); rDocs(); rSet();
   document.getElementById('brandSub').textContent=S().firm;
   var p=pending();
   pill('pDead',p.filter(function(d){ return dTo(d.date)<=7; }).length);
   pill('pCase',DB.cases.filter(function(k){ return k.status!=='Closed'; }).length);
   pill('pInv',DB.invoices.filter(function(v){ return invDue(v)>0.5; }).length);
+  pill('pDoc',(DB.docs||[]).length);
+  pill('pLead',newLeads());
   chip();
 }
 function pill(id,n){ var e=document.getElementById(id); e.textContent=n; e.hidden=!n; }
@@ -1362,18 +1529,20 @@ function showErrLog(){
   document.getElementById('modal').classList.add('on');
 }
 
-function copySheet(){
-  var t=document.querySelector('#sheet .diag');
-  var txt=t?t.innerText:'';
+function copyText(txt){
   try{
-    if(navigator.clipboard) navigator.clipboard.writeText(txt).then(function(){ toast('Copy ho gaya'); });
-    else throw 0;
+    if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(function(){ toast('Copy ho gaya'); }); return; }
+    throw 0;
   }catch(e){
     var ta=document.createElement('textarea');
     ta.value=txt; document.body.appendChild(ta); ta.select();
     try{ document.execCommand('copy'); toast('Copy ho gaya'); }catch(e2){ toast('Copy nahi hua — screenshot le lein'); }
     ta.remove();
   }
+}
+function copySheet(){
+  var t=document.querySelector('#sheet .diag');
+  copyText(t?t.innerText:'');
 }
 
 /* ---------------- gate / boot ---------------- */
@@ -1427,6 +1596,13 @@ SB.loadSess();
   document.getElementById('gpw').onkeydown=function(e){ if(e.key==='Enter') go(); };
   document.getElementById('gmail').onkeydown=function(e){ if(e.key==='Enter') go(); };
 })();
+
+/* PWA: bhaiya isko phone pe app ki tarah install kar sakte hain */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/sw.js').catch(function(e){ console.warn('sw fail',e); });
+  });
+}
 
 /* net wapas aane par pending changes khud upload */
 window.addEventListener('online',function(){ flush(); });
