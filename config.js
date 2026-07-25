@@ -15,5 +15,5 @@
 
 window.SKG = {
   SUPABASE_URL: 'https://cccqqjgcloltahaswgky.supabase.co',
-  SUPABASE_ANON_KEY: 'PASTE_YOUR_ANON_KEY_HERE'
+  SUPABASE_ANON_KEY: 'sb_publishable_p0yOg-mOUxhyOZUa1nlidg_m7CA2ci7'
 };
