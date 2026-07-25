@@ -116,7 +116,10 @@
     .it .acts{width:100%}
     .kpi b{font-size:22px}
   }
+  .diag{font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+  .diag .p{color:#8de0b0} .diag .f{color:#ffb3aa} .diag .n{color:var(--mut)}
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -125,9 +128,25 @@
     <div class="mark">SK</div>
     <h2>Office Panel</h2>
     <p>Sai Kripa Group · internal use only</p>
-    <label class="f"><span>Passcode</span><input type="password" id="gpin" inputmode="numeric" placeholder="Enter passcode" /></label>
-    <button class="btn p" id="gbtn" style="width:100%;justify-content:center">Open Panel</button>
-    <p id="gerr" style="color:#f0a9a1;margin-top:12px;display:none">Galat passcode</p>
+    <div id="gsetup" style="display:none">
+      <div class="note" style="text-align:left">
+        <b>Setup baaki hai 🔧</b><br><br>
+        <code>config.js</code> file me Supabase ki <b>anon / publishable</b> key daalni hai.<br><br>
+        GitHub → <code>config.js</code> → ✏️ edit →<br>
+        <code>PASTE_YOUR_ANON_KEY_HERE</code> ki jagah key paste karo → Commit changes.<br><br>
+        Key milegi: Supabase → Settings → API Keys → <b>Publishable key</b>.<br>
+        <b>Secret key kabhi nahi.</b>
+      </div>
+      <button class="btn sm" data-act="diag" style="margin-top:4px">🔧 Connection Test</button>
+    </div>
+
+    <div id="glogin" style="display:none">
+      <label class="f"><span>Email</span><input type="email" id="gmail" autocomplete="username" placeholder="email@gmail.com" /></label>
+      <label class="f"><span>Password</span><input type="password" id="gpw" autocomplete="current-password" /></label>
+      <button class="btn p" id="gbtn" style="width:100%;justify-content:center">Login</button>
+      <p id="gerr" style="color:#f0a9a1;margin-top:12px;display:none"></p>
+      <button class="btn sm" data-act="diag" style="margin-top:18px">🔧 Connection Test</button>
+    </div>
   </div>
 </div>
 
@@ -135,8 +154,10 @@
   <header class="top">
     <div class="top-in">
       <div class="brand"><div class="mark">SK</div><div><b>Office Panel</b><small id="brandSub">Sai Kripa Group</small></div></div>
+      <span class="tag t-mut" id="syncChip" title="cloud status">☁</span>
+      <button class="btn sm" data-act="cloudload" title="cloud se dobara load karo">↻</button>
       <button class="btn sm" data-act="backup">⬇ Backup</button>
-      <button class="btn sm" data-act="restore">⬆ Restore</button>
+      <button class="btn sm" data-act="logout">Logout</button>
       <input type="file" id="fileIn" accept="application/json" hidden />
     </div>
     <nav class="tabs" id="tabs">
@@ -198,9 +219,264 @@ function load(){
   for(var k in DEF){ if(s[k]===undefined) s[k]=DEF[k]; }
   DB.settings=s;
 }
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){ toast('Storage full — backup lo!'); } }
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(DB)); }catch(e){ toast('Local storage full'); } }
 var S=function(){ return DB.settings; };
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function uid(){
+  try{ if(window.crypto&&window.crypto.randomUUID) return window.crypto.randomUUID(); }catch(e){}
+  var h='0123456789abcdef',o='';
+  for(var i=0;i<36;i++){
+    o+=(i===8||i===13||i===18||i===23)?'-':(i===14?'4':h[Math.floor(Math.random()*16)]);
+  }
+  return o;
+}
+function isUuid(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||'')); }
+
+/* ================= cloud: Supabase (REST, no SDK) =================
+   Data cloud me jata hai, par localStorage bhi chalta rehta hai —
+   agar net gaya ya cloud fail hua to kaam rukta nahi, likhne wale
+   changes queue me ruk jate hain aur baad me khud upload ho jate hain.
+   Isliye data kabhi nahi khota.                                      */
+var CFG=window.SKG||{};
+var SESSK='skg_session_v1', PENDK='skg_pending_v1';
+var pend=[];        /* jo cloud pe bhejna baaki hai */
+var ERRLOG=[];
+
+function logErr(m){
+  ERRLOG.push(new Date().toLocaleTimeString()+'  '+m);
+  if(ERRLOG.length>40) ERRLOG.shift();
+}
+
+var SB={
+  url:String(CFG.SUPABASE_URL||'').replace(/\/+$/,''),
+  key:String(CFG.SUPABASE_ANON_KEY||''),
+  tok:null, rtok:null, email:'',
+
+  configured:function(){
+    return !!(SB.url && SB.key && SB.key.indexOf('PASTE_')<0);
+  },
+  live:function(){ return SB.configured() && !!SB.tok; },
+
+  loadSess:function(){
+    try{
+      var s=JSON.parse(localStorage.getItem(SESSK));
+      if(s&&s.tok){ SB.tok=s.tok; SB.rtok=s.rtok; SB.email=s.email||''; }
+    }catch(e){}
+    try{ pend=JSON.parse(localStorage.getItem(PENDK))||[]; }catch(e){ pend=[]; }
+  },
+  saveSess:function(){
+    try{ localStorage.setItem(SESSK,JSON.stringify({tok:SB.tok,rtok:SB.rtok,email:SB.email})); }catch(e){}
+  },
+  clearSess:function(){
+    SB.tok=null; SB.rtok=null; SB.email='';
+    try{ localStorage.removeItem(SESSK); }catch(e){}
+  },
+
+  /* ---- auth ---- */
+  authReq:function(grant,body){
+    return fetch(SB.url+'/auth/v1/token?grant_type='+grant,{
+      method:'POST',
+      headers:{'apikey':SB.key,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    }).then(function(r){
+      return r.text().then(function(t){
+        var j={}; try{ j=JSON.parse(t); }catch(e){}
+        if(!r.ok) throw new Error(j.error_description||j.msg||j.message||('HTTP '+r.status));
+        return j;
+      });
+    });
+  },
+  signIn:function(email,pw){
+    return SB.authReq('password',{email:email,password:pw}).then(function(j){
+      SB.tok=j.access_token; SB.rtok=j.refresh_token;
+      SB.email=(j.user&&j.user.email)||email;
+      SB.saveSess(); return j;
+    });
+  },
+  refresh:function(){
+    if(!SB.rtok) return Promise.reject(new Error('session khatam'));
+    return SB.authReq('refresh_token',{refresh_token:SB.rtok}).then(function(j){
+      SB.tok=j.access_token; SB.rtok=j.refresh_token||SB.rtok;
+      SB.saveSess(); return j;
+    });
+  },
+
+  /* ---- data ---- */
+  req:function(method,path,body,prefer,retried){
+    var h={'apikey':SB.key,'Content-Type':'application/json',
+           'Authorization':'Bearer '+(SB.tok||SB.key)};
+    if(prefer) h['Prefer']=prefer;
+    return fetch(SB.url+'/rest/v1'+path,{
+      method:method, headers:h, body:body?JSON.stringify(body):undefined
+    }).then(function(r){
+      if(r.status===401 && !retried && SB.rtok){
+        return SB.refresh().then(function(){ return SB.req(method,path,body,prefer,true); });
+      }
+      if(!r.ok){
+        return r.text().then(function(t){ throw new Error('HTTP '+r.status+' · '+t.slice(0,160)); });
+      }
+      if(r.status===204) return null;
+      return r.text().then(function(t){ return t?JSON.parse(t):null; });
+    });
+  },
+  sel:function(t,q){ return SB.req('GET','/'+t+(q||'?select=*')); },
+  up:function(t,row){ return SB.req('POST','/'+t,row,'resolution=merge-duplicates,return=minimal'); },
+  del:function(t,val,col){ return SB.req('DELETE','/'+t+'?'+(col||'id')+'=eq.'+encodeURIComponent(val)); }
+};
+
+/* ---- JS field naam  <->  database column naam ---- */
+function nn(v){ return (v===''||v===undefined)?null:v; }
+function num(v){ var n=Number(v); return isNaN(n)?null:n; }
+
+var MAP={
+  clients:{
+    out:function(o){ return {
+      id:o.id, name:o.name, entity:nn(o.entity), phone:nn(o.phone),
+      pan:nn(o.pan), gstin:nn(o.gstin), services:o.services||[],
+      gst_scheme:nn(o.gstScheme), tm_date:nn(o.tmDate), tm_no:nn(o.tmNo), notes:nn(o.notes)
+    }; },
+    "in":function(r){ return {
+      id:r.id, name:r.name||'', entity:r.entity||'', phone:r.phone||'',
+      pan:r.pan||'', gstin:r.gstin||'', services:r.services||[],
+      gstScheme:r.gst_scheme||'monthly', tmDate:r.tm_date||'', tmNo:r.tm_no||'',
+      notes:r.notes||'', custom:[]
+    }; }
+  },
+  cases:{
+    out:function(o){ return {
+      id:o.id, client_id:nn(o.cid), kind:nn(o.kind), section:nn(o.section),
+      notice_no:nn(o.noticeNo), ay:nn(o.ay), amount:num(o.amount),
+      received_on:nn(o.receivedOn), due_on:nn(o.dueOn), status:nn(o.status),
+      notes:nn(o.notes), history:o.hist||[]
+    }; },
+    "in":function(r){ return {
+      id:r.id, cid:r.client_id||'', kind:r.kind||'', section:r.section||'',
+      noticeNo:r.notice_no||'', ay:r.ay||'', amount:(r.amount==null?'':r.amount),
+      receivedOn:r.received_on||'', dueOn:r.due_on||'', status:r.status||'Received',
+      notes:r.notes||'', hist:r.history||[]
+    }; }
+  },
+  invoices:{
+    out:function(o){ return {
+      id:o.id, client_id:nn(o.cid), no:nn(o.no), date:nn(o.date),
+      items:o.items||[], gst_pct:num(o.gstPct)||0, paid:num(o.paid)||0,
+      paid_on:nn(o.paidOn), notes:nn(o.notes)
+    }; },
+    "in":function(r){ return {
+      id:r.id, cid:r.client_id||'', no:r.no||'', date:r.date||'',
+      items:r.items||[], gstPct:(r.gst_pct==null?0:r.gst_pct),
+      paid:Number(r.paid||0), paidOn:r.paid_on||'', notes:r.notes||''
+    }; }
+  }
+};
+
+/* ---- likhne ki queue (fail hone par data safe rehta hai) ---- */
+function saveQueue(){ try{ localStorage.setItem(PENDK,JSON.stringify(pend)); }catch(e){} }
+
+function cUp(table,row){
+  if(!SB.configured()) return;
+  pend.push({t:table,m:'up',p:row}); saveQueue(); flush();
+}
+function cDel(table,val,col){
+  if(!SB.configured()) return;
+  pend.push({t:table,m:'del',v:val,c:col||'id'}); saveQueue(); flush();
+}
+function cMark(key){
+  cUp('deadline_marks',{key:key,done:!!DB.done[key],reminded_on:DB.rem[key]||null});
+}
+function cSettings(){ cUp('app_settings',{id:1,data:S()}); }
+
+var flushing=false;
+function flush(){
+  if(flushing || !pend.length || !SB.live()){ chip(); return Promise.resolve(); }
+  flushing=true; chip();
+  var job=pend[0];
+  var p = job.m==='up' ? SB.up(job.t,job.p) : SB.del(job.t,job.v,job.c);
+  return p.then(function(){
+    pend.shift(); saveQueue(); flushing=false; chip();
+    if(pend.length) return flush();
+  }).catch(function(e){
+    flushing=false;
+    logErr('SAVE FAIL ['+job.t+'] '+e.message);
+    chip(e.message);
+  });
+}
+
+/* ---- cloud se poora data laao ---- */
+function syncDown(){
+  if(!SB.live()) return Promise.reject(new Error('login nahi hai'));
+  chip('loading');
+  /* PEHLE jo local changes upload hone baaki hain wo bhejo. Warna cloud ka
+     purana data unhe UI se mita dega. Na bhej paye to download hi mat karo. */
+  return flush().then(function(){
+    if(pend.length){ var pe=new Error('upload pending'); pe.pending=true; throw pe; }
+    return Promise.all([
+      SB.sel('clients'), SB.sel('cases'), SB.sel('invoices'),
+      SB.sel('deadline_marks'), SB.sel('app_settings')
+    ]);
+  }).then(function(r){
+    DB.clients=(r[0]||[]).map(MAP.clients['in']);
+    DB.cases  =(r[1]||[]).map(MAP.cases['in']);
+    DB.invoices=(r[2]||[]).map(MAP.invoices['in']);
+    DB.done={}; DB.rem={};
+    (r[3]||[]).forEach(function(m){
+      if(m.done) DB.done[m.key]=true;
+      if(m.reminded_on) DB.rem[m.key]=m.reminded_on;
+    });
+    var cloudS=(r[4]&&r[4][0]&&r[4][0].data)||{};
+    var s={};
+    for(var k in DEF) s[k]=DEF[k];
+    for(var k2 in cloudS) if(cloudS[k2]!==null&&cloudS[k2]!==undefined) s[k2]=cloudS[k2];
+    DB.settings=s;
+    save(); chip(); redraw();
+  }).catch(function(e){
+    if(e&&e.pending){
+      chip('upload pending');
+      toast(pend.length+' change upload hona baaki hai — cloud se overwrite nahi kiya (aapka data safe hai)');
+    }else{
+      logErr('LOAD FAIL '+e.message);
+      chip(e.message);
+      toast('Cloud se data nahi aaya — Settings me Connection Test dekhein');
+    }
+    throw e;
+  });
+}
+
+/* ---- local data ko cloud pe bhejo (ek baar ka kaam) ---- */
+function pushAll(){
+  var idmap={};
+  function fix(id){
+    if(isUuid(id)) return id;
+    if(!idmap[id]) idmap[id]=uid();
+    return idmap[id];
+  }
+  DB.clients.forEach(function(c){ c.id=fix(c.id); });
+  DB.cases.forEach(function(k){ k.id=fix(k.id); k.cid=k.cid?fix(k.cid):''; });
+  DB.invoices.forEach(function(v){ v.id=fix(v.id); v.cid=v.cid?fix(v.cid):''; });
+  var d2={},r2={};
+  Object.keys(DB.done).forEach(function(k){ var p=k.split('|'); d2[fix(p[0])+'|'+p[1]+'|'+p[2]]=true; });
+  Object.keys(DB.rem).forEach(function(k){ var p=k.split('|'); r2[fix(p[0])+'|'+p[1]+'|'+p[2]]=DB.rem[k]; });
+  DB.done=d2; DB.rem=r2;
+
+  DB.clients.forEach(function(c){ cUp('clients',MAP.clients.out(c)); });
+  DB.cases.forEach(function(k){ cUp('cases',MAP.cases.out(k)); });
+  DB.invoices.forEach(function(v){ cUp('invoices',MAP.invoices.out(v)); });
+  Object.keys(DB.done).forEach(cMark);
+  Object.keys(DB.rem).forEach(function(k){ if(!DB.done[k]) cMark(k); });
+  cSettings();
+  save(); redraw();
+  toast('Cloud pe bhej raha hoon — '+pend.length+' items');
+}
+
+/* ---- header ka sync indicator ---- */
+function chip(err){
+  var e=document.getElementById('syncChip');
+  if(!e) return;
+  if(!SB.configured()){ e.className='tag t-bad'; e.textContent='setup baaki'; return; }
+  if(err==='loading'){ e.className='tag t-mut'; e.textContent='load ho raha…'; return; }
+  if(err){ e.className='tag t-bad'; e.textContent='⚠ save nahi hua ('+pend.length+')'; e.title=String(err); return; }
+  if(pend.length){ e.className='tag t-warn'; e.textContent='↻ '+pend.length+' pending'; return; }
+  e.className='tag t-ok'; e.textContent='☁ saved'; e.title='Sab cloud pe save hai';
+}
 
 /* ---------------- helpers ---------------- */
 var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -504,6 +780,7 @@ function clientForm(id){
         notes:val('f_notes'),custom:c.custom||[]};
       if(id){ for(var i=0;i<DB.clients.length;i++) if(DB.clients[i].id===id) DB.clients[i]=o; }
       else DB.clients.push(o);
+      cUp('clients',MAP.clients.out(o));
       save(); toast(id?'Client update ho gaya':'Client add ho gaya'); redraw();
       return true;
     });
@@ -626,6 +903,7 @@ function caseForm(id){
       if(!id||k.status!==o.status) o.hist=o.hist.concat([{s:o.status,at:iso(today())}]);
       if(id){ for(var i=0;i<DB.cases.length;i++) if(DB.cases[i].id===id) DB.cases[i]=o; }
       else DB.cases.push(o);
+      cUp('cases',MAP.cases.out(o));
       save(); toast(id?'Case update':'Case add ho gaya'); redraw();
       return true;
     });
@@ -706,7 +984,8 @@ function invForm(id){
       var o={id:id||uid(),cid:val('i_cid'),no:val('i_no'),date:val('i_date'),gstPct:val('i_gst'),
         items:items,paid:Number(val('i_paid')||0),notes:val('i_notes')};
       if(id){ for(var j=0;j<DB.invoices.length;j++) if(DB.invoices[j].id===id) DB.invoices[j]=o; }
-      else { DB.invoices.push(o); S().invNext=Number(S().invNext||1)+1; }
+      else { DB.invoices.push(o); S().invNext=Number(S().invNext||1)+1; cSettings(); }
+      cUp('invoices',MAP.invoices.out(o));
       save(); toast(id?'Invoice update':'Invoice ban gaya'); redraw();
       return true;
     });
@@ -771,7 +1050,6 @@ function rSet(){
       '<label class="f"><span>Next invoice no.</span><input id="s_inext" inputmode="numeric" value="'+esc(s.invNext)+'"></label>'+
       '</div>'+
       '<label class="f"><span>Reminder kitne din pehle (comma se)</span><input id="s_rd" value="'+esc(s.remindDays)+'"></label>'+
-      '<label class="f"><span>Panel passcode (khali = band)</span><input id="s_pin" value="'+esc(s.pin)+'"></label>'+
       '</div></div>'+
     '<div class="box"><h3>WhatsApp message templates</h3><div style="padding:14px">'+
       tpl('s_tplDue','Due date reminder',s.tplDue)+
@@ -782,13 +1060,31 @@ function rSet(){
       tpl('s_tplReview','Google review request',s.tplReview)+
       '<div class="note">Placeholders: <b>{client} {task} {due} {days} {firm} {owner} {phone} {invno} {amount} {date} {pay} {review} {kind} {ref} {status} {extra} {age}</b></div>'+
       '</div></div>'+
-    '<div class="row" style="margin-bottom:22px"><button class="btn p" data-act="ssave">Save Settings</button>'+
-      '<button class="btn" data-act="backup">⬇ Backup file</button>'+
-      '<button class="btn" data-act="restore">⬆ Restore</button>'+
-      '<button class="btn dgr" data-act="wipe">Sab data delete</button></div>'+
-    '<div class="note"><b>Data kahan hai?</b> Sab kuch isi browser me save hai (localStorage) — internet pe kahin nahi jaata, kisi server pe nahi. Isliye <b>roz Backup file save karna zaruri hai</b>. Browser data clear kiya to data chala jayega. Dusre phone/laptop pe kholna ho to Backup file Restore kar lein.'+
-      '<br><br><b>Auto WhatsApp:</b> abhi message ek-tap me ready milta hai (Send aapko dabana hai). Bilkul automatic bhejne ke liye server + WhatsApp Business API chahiye — wo baad me lag sakta hai.'+
-      '<br><br><b>Passcode ke baare me sach:</b> ye page website ke saath public hai, aur passcode sirf browser me check hota hai — technical banda ise bypass kar sakta hai. Par <b>client ka data uske paas nahi jayega</b>, kyunki data sirf aapke browser me hai, page me nahi. Passcode ka kaam bas casual nazar rokna hai.</div>';
+    '<div class="row" style="margin-bottom:22px"><button class="btn p" data-act="ssave">Save Settings</button></div>'+
+
+    '<div class="box"><h3>Cloud</h3><div style="padding:14px">'+
+      '<div class="row" style="margin-bottom:12px">'+
+        '<span class="tag '+(SB.live()?'t-ok':'t-bad')+'">'+(SB.live()?'☁ juda hua':'juda nahi hai')+'</span>'+
+        (SB.email?'<span class="tag t-mut">'+esc(SB.email)+'</span>':'')+
+        (pend.length?'<span class="tag t-warn">'+pend.length+' upload pending</span>':'')+
+      '</div>'+
+      '<div class="row">'+
+        '<button class="btn" data-act="diag">🔧 Connection Test</button>'+
+        '<button class="btn" data-act="cloudload">↻ Cloud se dobara load karo</button>'+
+        '<button class="btn" data-act="pushlocal">⬆ Is browser ka data cloud pe bhejo</button>'+
+        '<button class="btn" data-act="errlog">📋 Error log</button>'+
+      '</div>'+
+      '<div class="row" style="margin-top:12px">'+
+        '<button class="btn" data-act="backup">⬇ Backup file</button>'+
+        '<button class="btn" data-act="restore">⬆ Backup file se restore</button>'+
+        '<button class="btn dgr" data-act="wipe">Local cache saaf karo</button>'+
+      '</div>'+
+      '</div></div>'+
+
+    '<div class="note"><b>Data kahan hai?</b> Sab kuch <b>Supabase cloud</b> me jata hai — isliye bhaiya ka phone aur laptop, dono pe same data dikhega. Is browser me ek copy (cache) bhi rehti hai taaki panel turant khule.'+
+      '<br><br><b>Net chala gaya to?</b> Kaam rukta nahi. Jo bhi badloge wo queue me ruk jayega, aur net aane par khud upload ho jayega. Upar wale <b>☁</b> chip me status dikhta rehta hai — <b>saved</b> matlab sab cloud pe pahunch gaya.'+
+      '<br><br><b>"Local cache saaf karo"</b> sirf is browser ki copy hatata hai — cloud ka data safe rehta hai, dobara login pe wapas aa jayega.'+
+      '<br><br><b>Auto WhatsApp:</b> abhi message ek-tap me ready milta hai (Send aapko dabana hai). Bilkul automatic bhejne ke liye WhatsApp Business API chahiye — wo baad me lag sakta hai.</div>';
 }
 function tpl(id,label,v){ return '<label class="f"><span>'+label+'</span><textarea id="'+id+'">'+esc(v)+'</textarea></label>'; }
 
@@ -799,7 +1095,7 @@ function sendDue(k){
   if(!d) return;
   var c=cli(d.cid); if(!c||!c.phone){ toast('Client ka phone nahi hai'); return; }
   var m=base(c); m.task=d.task; m.due=fmt(d.date); m.days=dayTxt(dTo(d.date));
-  DB.rem[k]=iso(today()); save();
+  DB.rem[k]=iso(today()); cMark(k); save();
   window.open(wa(c.phone,fill(S().tplDue,m)),'_blank');
   redraw();
 }
@@ -862,6 +1158,7 @@ function restore(f){
       DB=d; DB.cases=DB.cases||[]; DB.invoices=DB.invoices||[]; DB.done=DB.done||{}; DB.rem=DB.rem||{};
       var s=DB.settings||{}; for(var k in DEF) if(s[k]===undefined) s[k]=DEF[k]; DB.settings=s;
       save(); redraw(); toast('Restore ho gaya');
+      if(SB.live()&&confirm('Restore ho gaya.\n\nYe data cloud pe bhi bhej dein?')) pushAll();
     }catch(e){ toast('File galat hai'); }
   };
   r.readAsText(f);
@@ -875,13 +1172,20 @@ document.addEventListener('click',function(e){
   else if(a==='msave'){ if(!onSave||onSave()!==false) closeSheet(); }
   else if(a==='cnew') clientForm('');
   else if(a==='cedit') clientForm(id);
-  else if(a==='cdel'){ if(confirm('Client delete? Uske cases/invoices rahenge.')){ DB.clients=DB.clients.filter(function(c){ return c.id!==id; }); save(); redraw(); } }
+  else if(a==='cdel'){
+    if(confirm('Client delete karna hai?\n\nUske cases bhi delete ho jayenge.\nInvoices rahenge, par client ka naam hat jayega.')){
+      DB.clients=DB.clients.filter(function(c){ return c.id!==id; });
+      DB.cases=DB.cases.filter(function(k){ return k.cid!==id; });
+      DB.invoices.forEach(function(v){ if(v.cid===id) v.cid=''; });
+      cDel('clients',id); save(); redraw();
+    }
+  }
   else if(a==='cdocs') sendDocs(id);
   else if(a==='remind') sendDue(k);
-  else if(a==='dmark'){ if(DB.done[k]) delete DB.done[k]; else DB.done[k]=true; save(); redraw(); }
+  else if(a==='dmark'){ if(DB.done[k]) delete DB.done[k]; else DB.done[k]=true; cMark(k); save(); redraw(); }
   else if(a==='knew') caseForm('');
   else if(a==='kedit') caseForm(id);
-  else if(a==='kdel'){ if(confirm('Case delete?')){ DB.cases=DB.cases.filter(function(x){ return x.id!==id; }); save(); redraw(); } }
+  else if(a==='kdel'){ if(confirm('Case delete?')){ DB.cases=DB.cases.filter(function(x){ return x.id!==id; }); cDel('cases',id); save(); redraw(); } }
   else if(a==='kupd') sendCase(id);
   else if(a==='kmove'){
     var c1=DB.cases.filter(function(x){ return x.id===id; })[0];
@@ -889,6 +1193,7 @@ document.addEventListener('click',function(e){
     if(i<3){
       c1.status=STAT[i+1];
       c1.hist=(c1.hist||[]).concat([{s:c1.status,at:iso(today())}]);
+      cUp('cases',MAP.cases.out(c1));
       save(); redraw(); toast('Status: '+c1.status);
       if(c1.status==='Closed'&&S().reviewLink&&cli(c1.cid)&&cli(c1.cid).phone){
         if(confirm('Case close ho gaya ✅\n\nClient ko Google review request bhejein?')) sendReview(c1.cid);
@@ -897,31 +1202,52 @@ document.addEventListener('click',function(e){
   }
   else if(a==='inew') invForm('');
   else if(a==='iedit') invForm(id);
-  else if(a==='idel'){ if(confirm('Invoice delete?')){ DB.invoices=DB.invoices.filter(function(x){ return x.id!==id; }); save(); redraw(); } }
+  else if(a==='idel'){ if(confirm('Invoice delete?')){ DB.invoices=DB.invoices.filter(function(x){ return x.id!==id; }); cDel('invoices',id); save(); redraw(); } }
   else if(a==='invsend') sendInv(id,false);
   else if(a==='payrem') sendInv(id,true);
   else if(a==='invprint') printInv(id);
   else if(a==='review') sendReview(id);
   else if(a==='invpaid'){
     var v=DB.invoices.filter(function(x){ return x.id===id; })[0];
-    v.paid=invTotal(v).total; v.paidOn=iso(today()); save(); redraw(); toast('Paid mark ho gaya');
+    v.paid=invTotal(v).total; v.paidOn=iso(today());
+    cUp('invoices',MAP.invoices.out(v));
+    save(); redraw(); toast('Paid mark ho gaya');
     if(S().reviewLink&&cli(v.cid)&&cli(v.cid).phone){
       if(confirm('Payment mil gaya ✅\n\nClient ko Google review request bhejein?')) sendReview(v.cid);
     }
   }
   else if(a==='backup') backup();
   else if(a==='restore') document.getElementById('fileIn').click();
-  else if(a==='wipe'){ if(confirm('SAB data delete ho jayega. Pehle backup le liya?')&&confirm('Pakka?')){ localStorage.removeItem(KEY); location.reload(); } }
+  else if(a==='wipe'){
+    if(pend.length && !confirm(pend.length+' change abhi cloud pe nahi gaye hain.\nSaaf karne se wo chale jayenge. Phir bhi karna hai?')) return;
+    if(confirm('Is browser ki local copy hat jayegi.\nCloud ka data safe rahega aur dobara load ho jayega.\n\nContinue?')){
+      try{ localStorage.removeItem(KEY); localStorage.removeItem(PENDK); }catch(e){}
+      location.reload();
+    }
+  }
+  else if(a==='logout'){
+    if(pend.length && !confirm(pend.length+' change cloud pe jana baaki hai. Phir bhi logout?')) return;
+    SB.clearSess();
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    location.reload();
+  }
+  else if(a==='cloudload'){ syncDown().then(function(){ toast('Cloud se load ho gaya'); }).catch(function(){}); }
+  else if(a==='pushlocal'){
+    if(confirm('Is browser ka saara data cloud pe bhejna hai?\n(Same data ho to overwrite ho jayega — nuksaan nahi hoga)')) pushAll();
+  }
+  else if(a==='errlog') showErrLog();
+  else if(a==='diag') runDiag();
+  else if(a==='diagcopy') copySheet();
   else if(a==='ssave'){
     var s=S();
     s.firm=val('s_firm'); s.owner=val('s_owner'); s.phone=val('s_phone'); s.email=val('s_email');
     s.gstin=val('s_gstin'); s.address=val('s_addr');
     s.reviewLink=val('s_rev'); s.payLink=val('s_pay'); s.upi=val('s_upi');
     s.invPrefix=val('s_ipfx'); s.invNext=Number(val('s_inext')||1);
-    s.remindDays=val('s_rd'); s.pin=val('s_pin');
+    s.remindDays=val('s_rd');
     s.tplDue=val('s_tplDue'); s.tplDoc=val('s_tplDoc'); s.tplCase=val('s_tplCase');
     s.tplInv=val('s_tplInv'); s.tplPay=val('s_tplPay'); s.tplReview=val('s_tplReview');
-    save(); redraw(); toast('Settings save ho gayi');
+    cSettings(); save(); redraw(); toast('Settings save ho gayi');
   }
 });
 document.getElementById('modal').addEventListener('click',function(e){ if(e.target===this) closeSheet(); });
@@ -941,25 +1267,171 @@ function redraw(){
   pill('pDead',p.filter(function(d){ return dTo(d.date)<=7; }).length);
   pill('pCase',DB.cases.filter(function(k){ return k.status!=='Closed'; }).length);
   pill('pInv',DB.invoices.filter(function(v){ return invDue(v)>0.5; }).length);
+  chip();
 }
 function pill(id,n){ var e=document.getElementById(id); e.textContent=n; e.hidden=!n; }
 
-/* ---------------- gate ---------------- */
+/* ================= Connection Test =================
+   Sandbox se main Supabase ko test nahi kar sakta, isliye ye test
+   AAPKE browser me chalta hai. Har step ka exact result dikhata hai —
+   screenshot bhej dena, error se turant pata chal jayega kya galat hai. */
+var TABLES=['clients','cases','invoices','deadline_marks','app_settings','leads'];
+
+function runDiag(){
+  var lines=[];
+  function render(){
+    var html='<div class="diag">'+lines.join('\n')+'</div>';
+    var sh=document.getElementById('sheet');
+    sh.innerHTML='<header><h3>🔧 Connection Test</h3><button class="x" data-act="mclose">&times;</button></header>'+
+      '<div class="body">'+html+'</div>'+
+      '<footer><button class="btn" data-act="diagcopy">📋 Copy result</button>'+
+      '<button class="btn p" data-act="mclose">Band karo</button></footer>';
+    document.getElementById('modal').classList.add('on');
+  }
+  function ok(m){ lines.push('<span class="p">PASS</span>  '+esc(m)); render(); }
+  function bad(m){ lines.push('<span class="f">FAIL</span>  '+esc(m)); render(); }
+  function inf(m){ lines.push('<span class="n">' +esc(m)+ '</span>'); render(); }
+
+  lines=[]; render();
+  inf('--- 1. Setup ---');
+  if(window.SKG) ok('config.js load ho gayi'); else bad('config.js load NAHI hui (file missing?)');
+  if(SB.url) ok('Project URL: '+SB.url); else bad('SUPABASE_URL khali hai');
+  if(!SB.key) bad('Key khali hai');
+  else if(SB.key.indexOf('PASTE_')===0) bad('Key abhi bhari nahi — config.js me PASTE_YOUR_ANON_KEY_HERE hi likha hai');
+  else if(SB.key.indexOf('sb_secret')===0) bad('GALAT KEY — ye SECRET key hai. Isko turant Supabase me rotate karo aur publishable key daalo!');
+  else ok('Key mil gayi ('+SB.key.slice(0,14)+'…, '+SB.key.length+' chars)');
+
+  if(!SB.configured()){ inf('\nAage ka test nahi ho sakta — pehle key daalo.'); return; }
+
+  inf('\n--- 2. Connection ---');
+  var t0=Date.now();
+  fetch(SB.url+'/auth/v1/settings',{headers:{'apikey':SB.key}})
+    .then(function(r){
+      if(r.ok) ok('Supabase tak pahunch gaya ('+(Date.now()-t0)+'ms)');
+      else bad('Supabase ne mana kar diya — HTTP '+r.status+' (key galat ho sakti hai)');
+    })
+    .catch(function(e){ bad('Connection fail — '+e.message+' (internet ya URL check karo)'); })
+    .then(function(){
+      inf('\n--- 3. Login ---');
+      if(SB.live()) ok('Logged in: '+(SB.email||'—'));
+      else bad('Login nahi hai — table test khali/blocked dikh sakta hai');
+
+      inf('\n--- 4. Tables ---');
+      var seq=Promise.resolve();
+      TABLES.forEach(function(t){
+        seq=seq.then(function(){
+          return SB.req('GET','/'+t+'?select=*&limit=1').then(function(rows){
+            ok('Table "'+t+'" — theek hai ('+((rows&&rows.length)||0)+' row mila)');
+          }).catch(function(e){
+            var m=e.message||'';
+            if(m.indexOf('42P01')>=0||m.indexOf('does not exist')>=0)
+              bad('Table "'+t+'" NAHI BANI — SQL dobara chalao');
+            else if(m.indexOf('42501')>=0||m.indexOf('permission')>=0||m.indexOf('policy')>=0)
+              bad('Table "'+t+'" — RLS block kar raha hai. '+m);
+            else bad('Table "'+t+'" — '+m);
+          });
+        });
+      });
+      return seq;
+    })
+    .then(function(){
+      inf('\n--- 5. Likhne ka test ---');
+      if(!SB.live()){ bad('Login ke bina likhne ka test nahi ho sakta'); return; }
+      var tid=uid();
+      return SB.up('clients',{id:tid,name:'__test__ (delete ho jayega)',services:[]})
+        .then(function(){ ok('Likhna chala'); return SB.del('clients',tid); })
+        .then(function(){ ok('Delete bhi chala — dummy row saaf ho gaya'); })
+        .catch(function(e){ bad('Likhna fail — '+e.message); });
+    })
+    .then(function(){
+      inf('\n--- 6. Pending queue ---');
+      if(pend.length) bad(pend.length+' change cloud pe jane baaki hain');
+      else ok('Kuch pending nahi');
+      inf('\nTest poora. Koi FAIL ho to "Copy result" daba ke mujhe bhej dena.');
+    });
+}
+
+function showErrLog(){
+  var body=ERRLOG.length?'<div class="diag">'+ERRLOG.map(esc).join('\n')+'</div>'
+                        :'<div class="empty">Koi error nahi 🎉</div>';
+  document.getElementById('sheet').innerHTML=
+    '<header><h3>Error log</h3><button class="x" data-act="mclose">&times;</button></header>'+
+    '<div class="body">'+body+'</div>'+
+    '<footer><button class="btn" data-act="diagcopy">📋 Copy</button>'+
+    '<button class="btn p" data-act="mclose">Band karo</button></footer>';
+  document.getElementById('modal').classList.add('on');
+}
+
+function copySheet(){
+  var t=document.querySelector('#sheet .diag');
+  var txt=t?t.innerText:'';
+  try{
+    if(navigator.clipboard) navigator.clipboard.writeText(txt).then(function(){ toast('Copy ho gaya'); });
+    else throw 0;
+  }catch(e){
+    var ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('Copy ho gaya'); }catch(e2){ toast('Copy nahi hua — screenshot le lein'); }
+    ta.remove();
+  }
+}
+
+/* ---------------- gate / boot ---------------- */
 function openApp(){
-  document.getElementById('gate').remove();
+  var g=document.getElementById('gate');
+  if(g) g.remove();
   document.getElementById('app').hidden=false;
   redraw();
+  if(SB.live()){
+    flush();
+    syncDown().catch(function(){
+      toast('Cloud se load nahi hua — filhaal is browser ka data dikha raha hoon');
+    });
+  }
 }
+function gErr(m){
+  var e=document.getElementById('gerr');
+  if(e){ e.textContent=m; e.style.display=m?'block':'none'; }
+}
+
 load();
-(function(){
-  if(!S().pin){ openApp(); return; }
+SB.loadSess();
+(function boot(){
+  /* key hi nahi daali — setup screen dikhao */
+  if(!SB.configured()){
+    document.getElementById('gsetup').style.display='block';
+    return;
+  }
+  /* session pehle se hai — seedha khol do */
+  if(SB.tok){ openApp(); return; }
+
+  document.getElementById('glogin').style.display='block';
+  var btn=document.getElementById('gbtn');
   var go=function(){
-    if(document.getElementById('gpin').value===S().pin) openApp();
-    else document.getElementById('gerr').style.display='block';
+    var em=val('gmail').trim(), pw=val('gpw');
+    if(!em||!pw){ gErr('Email aur password dono daalein'); return; }
+    btn.disabled=true; btn.textContent='Login ho raha hai…'; gErr('');
+    SB.signIn(em,pw).then(function(){
+      openApp();
+    }).catch(function(e){
+      btn.disabled=false; btn.textContent='Login';
+      var m=e.message||'';
+      if(/Invalid login/i.test(m)) gErr('Email ya password galat hai');
+      else if(/not confirmed/i.test(m)) gErr('Email confirm nahi hui — Supabase me user ko "Auto Confirm" karein');
+      else if(/Failed to fetch|NetworkError/i.test(m)) gErr('Supabase se connection nahi bana — Connection Test dabaiye');
+      else gErr(m);
+      logErr('LOGIN FAIL '+m);
+    });
   };
-  document.getElementById('gbtn').onclick=go;
-  document.getElementById('gpin').onkeydown=function(e){ if(e.key==='Enter') go(); };
+  btn.onclick=go;
+  document.getElementById('gpw').onkeydown=function(e){ if(e.key==='Enter') go(); };
+  document.getElementById('gmail').onkeydown=function(e){ if(e.key==='Enter') go(); };
 })();
+
+/* net wapas aane par pending changes khud upload */
+window.addEventListener('online',function(){ flush(); });
+/* aur har 20 second me khud dobara koshish — user ko kuch karna nahi padta */
+setInterval(function(){ if(pend.length&&SB.live()) flush(); },20000);
 })();
 </script>
 </body>
