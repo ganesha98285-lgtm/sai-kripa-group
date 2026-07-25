@@ -1,7 +1,23 @@
 {
+  // Cloudflare Worker config.
+  //
+  //  - "main"   -> chhota backend jo /api/chat (AI bot) handle karta hai
+  //  - "assets" -> website ki files (index.html, office.html, upload.html)
+  //  - "ai"     -> Workers AI, Cloudflare account me built-in (koi key nahi)
+  //
+  // Jo request kisi file se match ho jaye wo seedhi file se milti hai;
+  // baaki (jaise /api/chat) worker.js ke paas jaati hai.
   "name": "sai-kripa-group",
   "compatibility_date": "2026-07-25",
+  "main": "src/worker.js",
   "assets": {
-    "directory": "./"
+    "directory": "./",
+    "binding": "ASSETS"
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true
   }
 }

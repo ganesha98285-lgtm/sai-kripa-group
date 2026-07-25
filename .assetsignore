@@ -1,3 +1,4 @@
+# Files that should NOT be published to the live site.
 .git
 .git/**
 .github/**
@@ -5,3 +6,7 @@
 wrangler.jsonc
 README.md
 .nojekyll
+src
+src/**
+supabase
+supabase/**
