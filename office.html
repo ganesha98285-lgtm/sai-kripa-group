@@ -3,8 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#080a11" />
 <meta name="robots" content="noindex,nofollow" />
 <title>Office Panel — Sai Kripa Group</title>
+
+<!-- icon + PWA: bhaiya isko phone pe app ki tarah install kar sakte hain -->
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/office.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="SK Office" />
+<meta name="mobile-web-app-capable" content="yes" />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -1585,6 +1596,13 @@ SB.loadSess();
   document.getElementById('gpw').onkeydown=function(e){ if(e.key==='Enter') go(); };
   document.getElementById('gmail').onkeydown=function(e){ if(e.key==='Enter') go(); };
 })();
+
+/* PWA: bhaiya isko phone pe app ki tarah install kar sakte hain */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/sw.js').catch(function(e){ console.warn('sw fail',e); });
+  });
+}
 
 /* net wapas aane par pending changes khud upload */
 window.addEventListener('online',function(){ flush(); });
