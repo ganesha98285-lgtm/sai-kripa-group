@@ -32,3 +32,28 @@ Enable **Settings → Pages → Deploy from branch → `main` / root**, then vis
 - Phone / WhatsApp: 98877 05993 · 92148 62726 · 92616 26392
 - Email: Kripasai2017@gmail.com
 - Proprietor: Pramod Kumar Sharma (21 years of experience)
+
+
+---
+
+## Office Panel (internal tool)
+
+`office.html` — practice management panel for daily office work. Open at
+`https://ganesha98285-lgtm.github.io/sai-kripa-group/office.html`
+
+Covers the three points that were finalised:
+
+**1. Client Database & Due Date Tracker**
+Add a client once, tick which services you handle, and every statutory due date is generated automatically — ITR (31 Jul / 31 Oct for audit), tax audit report (30 Sep), advance tax (15 Jun/Sep/Dec/Mar), GSTR-1 (11th), GSTR-3B (20th), QRMP PMT-06 (25th) and quarterly returns, CMP-08 (18th), GSTR-9 (31 Dec), TDS payment (7th, 30 Apr for March) and quarterly TDS returns, PF & ESI (15th), ROC AOC-4 / MGT-7 / DPT-3 / DIR-3 KYC, LLP Form 11 & 8, and trademark renewal. One tap sends a ready-written Hinglish WhatsApp reminder.
+
+**5. Case & Notice Tracking**
+Income Tax / GST notices with section, DIN, AY, demand amount and reply-due date, moving through **Received → In Progress → Filed → Closed**. Reply due dates also show up in the due-date list so they can't be missed. Status history is logged, and closing a case offers to send a Google review request.
+
+**6. Invoicing + Payment Reminder + Reviews**
+Multi-line invoices with optional GST, printable A4 format, WhatsApp invoice delivery with payment link / UPI, payment reminders showing how long a bill has been pending, and an automatic Google review request prompt when a payment is marked received.
+
+### Important notes
+- **No server.** Data is stored only in the browser (localStorage) — nothing is uploaded anywhere. Use the **Backup** button regularly to save a JSON file, and **Restore** to move data to another device.
+- **WhatsApp is one-tap, not fully automatic.** Messages are pre-written and open in WhatsApp ready to send. Truly hands-off sending needs a server plus the WhatsApp Business API.
+- The passcode is a client-side check only — it discourages casual viewing, it is not real security. Client data is never in the page itself.
+- Compliance dates follow the standard statutory calendar; always confirm against the latest CBDT/CBIC notifications, since government extensions are common.
