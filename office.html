@@ -99,6 +99,12 @@
   .t-ok{background:#12301f;color:#8de0b0} .t-mut{background:#1a2136;color:#9aa4bd}
   .t-blue{background:#152340;color:#a8c4f5} .t-gold{background:#2a2109;color:var(--gold-l)}
 
+  /* website form ke jawab — call se pehle poori picture */
+  .qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px;margin-top:9px;
+      padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
+  .qa i{display:block;font-style:normal;color:var(--mut);font-size:10.5px;letter-spacing:.04em}
+  .qa b{display:block;font-size:12.5px;font-weight:600;color:#dfe3ec;word-break:break-word}
+
   .modal{position:fixed;inset:0;z-index:60;background:rgba(4,6,12,.72);display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
   .modal.on{display:flex}
   .sheet{background:var(--bg2);border:1px solid var(--line);border-radius:14px;width:100%;max-width:560px;margin:auto}
@@ -205,9 +211,13 @@
 
 /* ---------------- storage ---------------- */
 var KEY='skg_office_v1';
+/* Firm ki details config.js se aati hain, taaki number/email ek hi jagah
+   se badle. Settings tab me badla ho to wahi chalta hai. */
+var _C=(window.SKG&&window.SKG.CONTACT)||{};
 var DEF={
-  firm:'Sai Kripa Group', owner:'Pramod Kumar Sharma',
-  phone:'919887705993', email:'Kripasai2017@gmail.com',
+  firm:_C.firm||'Sai Kripa Group', owner:_C.owner||'Pramod Kumar Sharma',
+  phone:(window.SKG&&window.SKG.WA_NUMBER)||'919887705993',
+  email:_C.email||'Kripasai2017@gmail.com',
   address:'', gstin:'',
   reviewLink:'', payLink:'', upi:'',
   invPrefix:'SKG/26-27/', invNext:1, pin:'',
@@ -457,6 +467,9 @@ function syncDown(){
     DB.leads=(r[6]||[]).map(function(l){
       return {id:l.id,name:l.name||'',phone:l.phone||'',service:l.service||'',
               message:l.message||'',source:l.source||'',status:l.status||'New',
+              ref:l.ref||'',email:l.email||'',entity:l.entity||'',
+              answers:l.answers||{},urgency:l.urgency||'normal',
+              token:l.upload_token||'',
               at:String(l.created_at||'').slice(0,10)};
     });
     DB.clients=(r[0]||[]).map(MAP.clients['in']);
@@ -1090,19 +1103,34 @@ function rLeads(){
       .map(function(x){ return '<option value="'+x[0]+'" '+(lFilter===x[0]?'selected':'')+'>'+x[1]+'</option>'; }).join('')+
     '</select></div>';
 
-  h+='<div class="note">Website ke chat bot se jo inquiry aayegi wo yahan apne aap aa jayegi — naam, phone aur poori baat-cheet ke saath. '+
-     '<b>WhatsApp</b> daba ke turant follow-up karein, kaam pakka ho jaye to <b>Client banao</b> daba dein.</div>';
+  h+='<div class="note">Website ke <b>service form</b> aur <b>chat bot</b> se jo inquiry aayegi wo yahan apne aap aa jayegi — naam, phone, '+
+     'reference number aur us service ke saare jawab ke saath. <b>WhatsApp</b> daba ke turant follow-up karein, kaam pakka ho jaye to '+
+     '<b>Client banao</b> daba dein. <span class="tag t-bad">URGENT</span> wale pehle dekhein — unki last date paas hai.</div>';
 
   h+='<div class="box"><div class="list">';
   if(!list.length) h+='<div class="empty">'+((DB.leads||[]).length?'Is filter me kuch nahi':'Abhi koi lead nahi aayi')+'</div>';
   list.forEach(function(l){
     var si=LSTAT.indexOf(l.status);
+    var ans=l.answers&&typeof l.answers==='object'?l.answers:{};
+    var keys=Object.keys(ans);
+    /* form ke jawab — CA ko call se pehle poori picture mil jati hai */
+    var ansHTML=keys.length?'<div class="qa">'+keys.map(function(k){
+      return '<div><i>'+esc(k)+'</i><b>'+esc(String(ans[k]))+'</b></div>';
+    }).join('')+'</div>':'';
+    var upLink=l.token?(location.origin+'/upload.html?t='+encodeURIComponent(l.token)):'';
+
     h+='<div class="it"><div class="m"><b>'+esc(l.name||'(naam nahi diya)')+' '+
-      '<span class="tag '+(si===0?'t-warn':si===1?'t-blue':si===2?'t-ok':'t-mut')+'">'+esc(l.status)+'</span></b>'+
-      '<small>'+(l.phone?esc(l.phone)+' · ':'')+esc(l.service||'—')+' · '+fmt(l.at)+
-      (l.message?'<br>&ldquo;'+esc(l.message.slice(0,150))+(l.message.length>150?'…':'')+'&rdquo;':'')+'</small></div>'+
+      '<span class="tag '+(si===0?'t-warn':si===1?'t-blue':si===2?'t-ok':'t-mut')+'">'+esc(l.status)+'</span>'+
+      (l.urgency==='urgent'?' <span class="tag t-bad">URGENT</span>':'')+
+      (l.ref?' <span class="tag t-gold">'+esc(l.ref)+'</span>':'')+'</b>'+
+      '<small>'+(l.phone?esc(l.phone)+' · ':'')+esc(l.service||'—')+
+      (l.entity?' · '+esc(l.entity):'')+' · '+fmt(l.at)+
+      (l.email?'<br>'+esc(l.email):'')+
+      (l.message?'<br>&ldquo;'+esc(l.message.slice(0,200))+(l.message.length>200?'…':'')+'&rdquo;':'')+'</small>'+
+      ansHTML+'</div>'+
       '<div class="acts">'+
-      (l.phone?'<a class="btn wa sm" href="'+wa(l.phone,'Namaste'+(l.name?' '+l.name:'')+' ji 🙏\n\nSai Kripa Group se baat kar raha hoon. Aapne website par '+(l.service||'inquiry')+' ke baare me poochha tha — bataiye kya help chahiye?\n\n— '+S().owner)+'" target="_blank" rel="noreferrer">WhatsApp</a>':'')+
+      (l.phone?'<a class="btn wa sm" href="'+wa(l.phone,'Namaste'+(l.name?' '+l.name:'')+' ji 🙏\n\n'+S().firm+' se baat kar raha hoon. Aapne website par '+(l.service||'inquiry')+' ke liye request bheji thi'+(l.ref?' (ref '+l.ref+')':'')+' — bataiye kya help chahiye?\n\n— '+S().owner)+'" target="_blank" rel="noreferrer">WhatsApp</a>':'')+
+      (upLink?'<button class="btn sm" data-act="lup" data-id="'+l.id+'">📎 Upload link</button>':'')+
       (si<3?'<button class="btn sm" data-act="lnext" data-id="'+l.id+'">→ '+LSTAT[si+1]+'</button>':'')+
       (l.phone?'<button class="btn sm p" data-act="lmake" data-id="'+l.id+'">Client banao</button>':'')+
       '<button class="btn sm dgr" data-act="ldel" data-id="'+l.id+'">Del</button>'+
@@ -1388,14 +1416,38 @@ document.addEventListener('click',function(e){
     DB.leads=(DB.leads||[]).filter(function(x){ return x.id!==id; });
     cDel('leads',id); save(); redraw();
   }
+  else if(a==='lup'){
+    /* Website request ka apna upload link — customer ko dobara bhejne ke liye */
+    var lu=(DB.leads||[]).filter(function(x){ return x.id===id; })[0]; if(!lu) return;
+    if(!lu.token){ toast('Is lead ka upload link nahi hai (purani entry)'); return; }
+    var ulink=location.origin+'/upload.html?t='+lu.token;
+    if(lu.phone){
+      var um=base({name:lu.name,phone:lu.phone}); um.link=ulink; um.client=lu.name||'ji';
+      um.task=lu.service||'aapka kaam';
+      window.open(wa(lu.phone,fill(S().tplUpload,um)),'_blank');
+    } else { copyText(ulink); toast('Phone nahi hai — link copy kar diya'); }
+  }
   else if(a==='lmake'){
     var lm=(DB.leads||[]).filter(function(x){ return x.id===id; })[0]; if(!lm) return;
     var exist=DB.clients.filter(function(c){ return phone(c.phone)===phone(lm.phone); })[0];
     if(exist){ toast('Ye phone pehle se client hai: '+exist.name); return; }
     if(!confirm('"'+(lm.name||lm.phone)+'" ko client bana dein?\n\nPhir Clients tab me jaake uski services tick kar dijiye — due dates khud ban jayengi.')) return;
-    var nc={id:uid(),name:lm.name||('Lead '+lm.phone),entity:'Individual',phone:lm.phone,
+    /* Form ke jawab notes me chale jate hain, taaki kuch bhi na khoye */
+    var ansTxt='';
+    if(lm.answers&&typeof lm.answers==='object'){
+      ansTxt=Object.keys(lm.answers).map(function(k){ return k+': '+lm.answers[k]; }).join('\n');
+    }
+    var ent=String(lm.entity||'').replace(/ .*/,'');
+    var ENTOK=['Individual','Proprietorship','Partnership','Pvt','LLP','HUF','Trust'];
+    var entity=ENTOK.indexOf(ent)>=0?(ent==='Pvt'?'Pvt Ltd':ent):'Individual';
+    var nc={id:uid(),name:lm.name||('Lead '+lm.phone),entity:entity,phone:lm.phone,
             pan:'',gstin:'',services:[],gstScheme:'monthly',tmDate:'',tmNo:'',
-            notes:'Website chat se aaya lead'+(lm.service?' — '+lm.service:''),token:'',custom:[]};
+            notes:['Website se aaya lead'+(lm.ref?' ('+lm.ref+')':''),
+                   lm.service?'Service: '+lm.service:'',
+                   lm.email?'Email: '+lm.email:'',
+                   ansTxt, lm.message?'Note: '+lm.message:''
+                  ].filter(Boolean).join('\n'),
+            token:lm.token||'',custom:[]};
     DB.clients.push(nc); cUp('clients',MAP.clients.out(nc));
     lm.status='Converted'; cUp('leads',{id:lm.id,status:'Converted'});
     save(); redraw(); toast('Client ban gaya — ab services tick kar dijiye');

@@ -28,7 +28,28 @@ Open `index.html` in a modern browser (internet required — Three.js/GSAP load 
 Enable **Settings → Pages → Deploy from branch → `main` / root**, then visit:
 `https://ganesha98285-lgtm.github.io/sai-kripa-group/`
 
-## Contact
+## Service request forms
+Clicking a service on the website no longer jumps to WhatsApp. It opens a
+3-step form built for that specific service — only the questions that actually
+matter for that job, plus the list of documents to get ready.
+
+On submit the visitor gets a **reference number** (`SKG-2607-0041`) and a
+private **document upload link**, and the request appears instantly in the
+office panel under **Leads** with every answer, so the CA can call already
+knowing the case.
+
+Setup: run `supabase/03-requests.sql` once in Supabase → SQL Editor.
+
+## Contact — change the number in ONE place
+All phone numbers and the email live in **`config.js`** under `CONTACT`.
+Edit `whatsapp` / `numbers` / `email` there and the whole site, the office
+panel and the upload page pick it up automatically.
+
+Two files are static and must be edited by hand if the number changes:
+- `manifest.webmanifest` — the PWA "WhatsApp" shortcut
+- `src/worker.js` — the number the AI chat assistant quotes
+
+Current:
 - Phone / WhatsApp: 98877 05993 · 92148 62726 · 92616 26392
 - Email: Kripasai2017@gmail.com
 - Proprietor: Pramod Kumar Sharma (21 years of experience)

@@ -201,7 +201,7 @@
       <svg class="tiny-mark" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f9e9bc"/><stop offset=".5" stop-color="#d9ac42"/><stop offset="1" stop-color="#9c7826"/></linearGradient></defs><circle cx="60" cy="60" r="55" fill="#0c1226" stroke="url(#mg)" stroke-width="5"/><circle cx="60" cy="60" r="46" fill="none" stroke="url(#mg)" stroke-width="1.4"/><text x="60" y="78" text-anchor="middle" fill="url(#mg)" font-family="Georgia" font-size="50" font-weight="bold" letter-spacing="-3">SK</text></svg>
       <span><strong>Sai Kripa Group</strong><small>Taxation &amp; Consultancy</small></span>
     </a>
-    <div class="top-actions"><button class="top-chat" data-chat-open>💬 Ask us</button><a class="top-cta wa-link" href="#">WhatsApp us ↗</a></div>
+    <div class="top-actions"><button class="top-chat" data-chat-open>💬 Ask us</button><button class="top-cta" type="button" data-req-open>Start a request ↗</button></div>
   </header>
   <div class="progress" aria-hidden="true"><span></span></div>
 
@@ -251,14 +251,14 @@
         <h2 class="reveal">Let's sort your<br><em>compliance today.</em></h2>
         <p class="sub reveal">All types of taxation and consultancy under one roof. Reach out and talk to Pramod Kumar Sharma — 21 years of experience.</p>
         <div class="cgrid">
-          <div class="ccard reveal"><div class="lbl">Call / WhatsApp</div><a class="v" href="tel:+919887705993">98877 05993</a><a class="v" href="tel:+919214862726">92148 62726</a><a class="v" href="tel:+919261626392">92616 26392</a></div>
-          <div class="ccard reveal"><div class="lbl">Email</div><a class="v" href="mailto:Kripasai2017@gmail.com" style="font-size:15px;word-break:break-all">Kripasai2017@gmail.com</a><div class="lbl" style="margin-top:18px">Proprietor</div><div class="v" style="font-size:17px">Pramod Kumar Sharma</div></div>
+          <div class="ccard reveal"><div class="lbl">Call / WhatsApp</div><div id="contactNums"></div></div>
+          <div class="ccard reveal"><div class="lbl">Email</div><a class="v" data-mail="text" href="#" style="font-size:15px;word-break:break-all">&nbsp;</a><div class="lbl" style="margin-top:18px">Proprietor</div><div class="v" style="font-size:17px">Pramod Kumar Sharma</div></div>
           <div class="ccard reveal"><div class="lbl">Special services</div><div class="v" style="font-size:15px">IT &amp; GST Cases · Notice Reply</div><div class="v" style="font-size:15px">Trademark · Pvt Ltd Registration</div><div class="v" style="font-size:15px">ESI &amp; PF · Legal Advisory</div><div class="v" style="font-size:15px">21 Years Experience · 50 Lakh+ Cases</div></div>
         </div>
         <div class="cta-row reveal">
-          <a class="btn btn-wa wa-link" href="#">◉ WhatsApp us</a>
-          <a class="btn btn-call" href="tel:+919887705993">✆ Call now</a>
-          <a class="btn btn-mail" href="mailto:Kripasai2017@gmail.com">✉ Email us</a>
+          <button class="btn btn-wa" type="button" data-req-open>✎ Request a callback</button>
+          <a class="btn btn-call" data-call href="#">✆ Call now</a>
+          <a class="btn btn-mail" data-mail href="#">✉ Email us</a>
         </div>
         <div class="owner reveal">Trusted tax &amp; legal partner · <b>Sai Kripa Group</b></div>
         <footer class="footer"><span>SAI KRIPA GROUP · TAXATION &amp; CONSULTANCY</span><span>21 YEARS OF EXPERIENCE · ALL SOLUTIONS UNDER ONE ROOF</span><span>© <span id="year"></span> Sai Kripa Group</span></footer>
@@ -266,17 +266,32 @@
     </section>
   </div>
 
+  <!-- config.js sabse pehle: phone number aur Supabase key yahan se aate hain -->
+  <script src="config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/lenis@1.3.15/dist/lenis.min.js"></script>
 
   <script>
     (()=>{
-      const WA='919887705993';
-      const wa=t=>`https://wa.me/${WA}?text=${encodeURIComponent(t)}`;
+      const CFG=window.SKG||{};
+      const CT=CFG.CONTACT||{};
+      const wa=t=>(CFG.waLink?CFG.waLink(t):'#');
       const general='Hi Sai Kripa Group! I would like to know more about your taxation & consultancy services (Income Tax / GST / ESI-PF / Trademark / Pvt Ltd). Please guide me.';
       document.querySelectorAll('.wa-link').forEach(a=>{a.href=wa(general);a.target='_blank';a.rel='noreferrer'});
       document.querySelector('#year').textContent=new Date().getFullYear();
+
+      /* Contact section ke number/email config.js se bharte hain, taaki
+         number badalne par sirf ek file chhedni pade. */
+      const numBox=document.querySelector('#contactNums');
+      if(numBox&&CT.numbers){
+        numBox.innerHTML=CT.numbers.map(n=>{
+          const d=String(n).replace(/\D/g,'');
+          return `<a class="v" href="tel:+${d}">${CFG.pretty(n)}</a>`;
+        }).join('');
+      }
+      document.querySelectorAll('[data-call]').forEach(a=>{a.href='tel:+'+(CFG.CALL_NUMBER||'')});
+      document.querySelectorAll('[data-mail]').forEach(a=>{a.href='mailto:'+(CT.email||'');if(a.dataset.mail==='text')a.textContent=CT.email||'';});
       function icon(type,color,id){
         const g=`ic-${id}`;const st=`fill="none" stroke="url(#${g})" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"`;
         let b='';
@@ -303,8 +318,10 @@
         ['loan','#8fb0e8','50 Lakh+ Case Handling','High-value case expertise'],
         ['tds','#e4bd63','Legal Advisory (LLB)','Guidance for legal matters']
       ];
-      document.querySelector('#svcGrid').innerHTML=services.map((s,i)=>`<a class="svc-row wa-link2" data-service="${s[2]}" href="#"><span class="ic">${icon(s[0],s[1],'g'+i)}</span><span><h4>${s[2]}</h4><p>${s[3]}</p></span></a>`).join('');
-      document.querySelectorAll('.wa-link2').forEach(a=>{a.href=wa(`Hi Sai Kripa Group! I am interested in your "${a.dataset.service}" service. Please share details.`);a.target='_blank';a.rel='noreferrer'});
+      /* Service par click karne se WhatsApp nahi khulta — us service ka
+         apna form khulta hai. Data seedha office panel me jata hai. */
+      const attr=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      document.querySelector('#svcGrid').innerHTML=services.map((s,i)=>`<button class="svc-row" type="button" data-req-open data-service="${attr(s[2])}"><span class="ic">${icon(s[0],s[1],'g'+i)}</span><span><h4>${s[2]}</h4><p>${s[3]}</p></span><span class="go">Start →</span></button>`).join('');
       const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.14});
       document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
       if(matchMedia('(prefers-reduced-motion:reduce)').matches){document.documentElement.classList.add('rm');document.getElementById('topbar').classList.add('show');}
@@ -632,6 +649,404 @@
     }
   </script>
 
+  <!-- ================= Service request form ================= -->
+  <style>
+    .svc-row{width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer}
+    .svc-row .go{margin-left:auto;flex:none;color:var(--gold-light);font-size:11px;letter-spacing:.08em;opacity:0;transition:opacity .25s}
+    .svc-row:hover .go{opacity:1}
+    .rq-back{position:fixed;inset:0;z-index:90;background:rgba(4,7,18,.82);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .3s}
+    .rq-back.on{opacity:1;pointer-events:auto}
+    .rq{position:fixed;z-index:91;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);width:min(560px,calc(100vw - 28px));max-height:88vh;display:flex;flex-direction:column;
+      background:linear-gradient(165deg,#131a33,#0b1024);border:1px solid rgba(228,189,99,.22);border-radius:22px;box-shadow:0 40px 90px rgba(0,0,0,.6);
+      opacity:0;pointer-events:none;transition:opacity .3s,transform .3s}
+    .rq.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+    .rq-hd{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex:none}
+    .rq-hd b{font-family:var(--serif);font-size:17px;font-weight:600;display:block;line-height:1.25}
+    .rq-hd small{color:#8b90a0;font-size:11px}
+    .rq-hd .x{margin-left:auto;flex:none;background:none;border:0;color:#8b90a0;font-size:26px;line-height:1;cursor:pointer;padding:0 4px}
+    .rq-steps{display:flex;gap:6px;padding:0 20px 14px;flex:none}
+    .rq-steps i{height:3px;flex:1;border-radius:2px;background:rgba(255,255,255,.1);transition:background .3s}
+    .rq-steps i.on{background:linear-gradient(90deg,#f9e9bc,#d9ac42)}
+    .rq-bd{padding:4px 20px 20px;overflow-y:auto;flex:1}
+    .rq-f{display:block;margin-bottom:15px}
+    .rq-f>span{display:block;color:#c8ccd8;font-size:12.5px;font-weight:600;margin-bottom:7px}
+    .rq-f>span em{color:#e4bd63;font-style:normal}
+    .rq-f input,.rq-f select,.rq-f textarea{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;
+      color:#eef1f7;font:inherit;font-size:14px;padding:11px 13px;outline:none}
+    .rq-f input:focus,.rq-f select:focus,.rq-f textarea:focus{border-color:rgba(228,189,99,.5)}
+    .rq-f textarea{min-height:78px;resize:vertical}
+    .rq-f select option{background:#131a33}
+    .rq-chips{display:flex;flex-wrap:wrap;gap:7px}
+    .rq-chips button{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;color:#c8ccd8;font:inherit;font-size:12px;padding:7px 13px;cursor:pointer}
+    .rq-chips button.on{background:rgba(228,189,99,.16);border-color:rgba(228,189,99,.5);color:#f9e9bc}
+    .rq-docs{background:rgba(228,189,99,.06);border:1px solid rgba(228,189,99,.16);border-radius:14px;padding:14px 16px;margin-bottom:16px}
+    .rq-docs b{display:block;color:#f9e9bc;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:9px}
+    .rq-docs li{color:#a9aebd;font-size:12.5px;line-height:1.75;list-style:none;padding-left:16px;position:relative}
+    .rq-docs li:before{content:'·';position:absolute;left:4px;color:#e4bd63}
+    .rq-docs p{margin:9px 0 0;color:#71768a;font-size:11px}
+    .rq-ft{display:flex;gap:9px;padding:15px 20px;border-top:1px solid var(--line);flex:none}
+    .rq-ft button{flex:1;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#c8ccd8;font:inherit;font-weight:600;font-size:13.5px;padding:12px;cursor:pointer}
+    .rq-ft button.pri{flex:2;border-color:transparent;background:linear-gradient(120deg,#f9e9bc,#d9ac42);color:#1a1206}
+    .rq-ft button:disabled{opacity:.5;cursor:default}
+    .rq-err{background:rgba(233,86,86,.12);border:1px solid rgba(233,86,86,.35);border-radius:11px;color:#ffb4b4;font-size:12.5px;padding:10px 13px;margin-bottom:14px}
+    .rq-ok{text-align:center;padding:12px 4px 4px}
+    .rq-ok .tick{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:rgba(74,193,124,.14);border:1px solid rgba(74,193,124,.4);font-size:30px}
+    .rq-ok h3{font-family:var(--serif);font-size:21px;font-weight:600;margin:0 0 8px}
+    .rq-ok p{color:#a9aebd;font-size:13px;margin:0 0 16px;line-height:1.65}
+    .rq-ref{display:inline-block;background:rgba(228,189,99,.1);border:1px dashed rgba(228,189,99,.45);border-radius:11px;padding:11px 20px;margin-bottom:18px}
+    .rq-ref span{display:block;color:#8b90a0;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+    .rq-ref b{font-family:var(--serif);font-size:20px;color:#f9e9bc;letter-spacing:.04em}
+    .rq-next{display:grid;gap:9px}
+    .rq-next a{display:block;border-radius:12px;padding:12px;font-size:13.5px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:#c8ccd8;background:rgba(255,255,255,.05)}
+    .rq-next a.up{border-color:transparent;background:linear-gradient(120deg,#f9e9bc,#d9ac42);color:#1a1206}
+    @media(max-width:640px){.rq{max-height:92vh}.svc-row .go{display:none}}
+  </style>
+
+  <div class="rq-back" id="rqBack" data-req-close></div>
+  <div class="rq" id="rq" role="dialog" aria-modal="true" aria-label="Service request form">
+    <div class="rq-hd">
+      <div><b id="rqTitle">Start a request</b><small id="rqSub">Step 1 of 3</small></div>
+      <button class="x" type="button" data-req-close aria-label="Band karein">&times;</button>
+    </div>
+    <div class="rq-steps"><i class="on"></i><i></i><i></i></div>
+    <div class="rq-bd" id="rqBd"></div>
+    <div class="rq-ft" id="rqFt"></div>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+    var CFG=window.SKG||{}, CT=CFG.CONTACT||{};
+
+    /* =================================================================
+       Har service ka apna form. Sirf wahi poochha jata hai jo us kaam ke
+       liye asli me chahiye, aur saath me document list dikhti hai taaki
+       customer pehle se taiyari kar le.
+       t: 'sel' = ek option, 'multi' = kai option, 'txt' = ek line,
+          'num' = number, 'date' = tarikh, 'area' = bada box
+       ================================================================= */
+    var YESNO=['Haan','Nahi','Pata nahi'];
+    var TURN=['20 lakh se kam','20 lakh - 1 crore','1 - 5 crore','5 crore se zyada','Naya business hai'];
+
+    var FORMS={
+      'Income Tax Return':{
+        f:[{k:'ay',l:'Assessment year',t:'sel',o:['2026-27','2025-26','2024-25','Isse pehle ka','Pata nahi'],req:1},
+           {k:'src',l:'Income kahan se aati hai',t:'multi',o:['Salary','Business / Profession','Capital gains (shares, property)','Rent','Interest / FD','Foreign income','Kheti'],req:1},
+           {k:'slab',l:'Approx saalana income',t:'sel',o:['5 lakh se kam','5 - 10 lakh','10 - 25 lakh','25 - 50 lakh','50 lakh se zyada','Batana nahi chahta']},
+           {k:'prev',l:'Pehle ITR file ki hai?',t:'sel',o:['Haan, har saal','Haan, kuch saal','Nahi, pehli baar']}],
+        d:['PAN card','Aadhaar card','Form 16 / salary slip','Bank statement (April se March)','Investment proof (80C, 80D)','Pichhli ITR, agar ho']
+      },
+      'GST Registration & Return':{
+        f:[{k:'need',l:'Kya kaam hai',t:'sel',o:['Nayi GST registration','Monthly / quarterly return','Annual return (GSTR-9)','GST cancel karana hai','Amendment / correction'],req:1},
+           {k:'gstin',l:'GSTIN (agar pehle se hai)',t:'txt',ph:'22AAAAA0000A1Z5'},
+           {k:'biz',l:'Business kis type ka hai',t:'sel',o:['Proprietorship','Partnership','Pvt Ltd','LLP','Trader','Manufacturer','Service provider','E-commerce seller'],req:1},
+           {k:'turn',l:'Saalana turnover',t:'sel',o:TURN}],
+        d:['PAN card','Aadhaar card','Business address proof (bijli bill / rent agreement)','Bank details ya cancelled cheque','Passport size photo','Rent agreement + NOC, agar kiraye ka ho']
+      },
+      'TDS / TCS Services':{
+        f:[{k:'need',l:'Kya kaam hai',t:'sel',o:['Quarterly return filing','Correction / revised return','Lower deduction certificate','TAN registration','Default notice ka jawab'],req:1},
+           {k:'tan',l:'TAN number',t:'txt',ph:'JPRP01234E'},
+           {k:'qtr',l:'Kaunsa quarter',t:'sel',o:['Q1 (Apr-Jun)','Q2 (Jul-Sep)','Q3 (Oct-Dec)','Q4 (Jan-Mar)','Ek se zyada']},
+           {k:'type',l:'Deductor type',t:'sel',o:['Company','Firm','Proprietor','Individual','Government']}],
+        d:['TAN certificate','Challan copies (paid TDS)','Deductee list PAN ke saath','Salary / payment details','Pichhla return, agar ho']
+      },
+      'Accounting Solutions':{
+        f:[{k:'biz',l:'Business type',t:'sel',o:['Proprietorship','Partnership','Pvt Ltd','LLP','Trust / Society'],req:1},
+           {k:'vol',l:'Mahine me kitni entries aati hain',t:'sel',o:['50 se kam','50 - 200','200 - 1000','1000 se zyada','Pata nahi']},
+           {k:'soft',l:'Abhi kis par kaam hota hai',t:'sel',o:['Tally','Excel','Busy','Zoho / other software','Kuch nahi, register par']},
+           {k:'per',l:'Kis period ka kaam hai',t:'txt',ph:'Jaise: April 2025 se ab tak'}],
+        d:['Bank statement (poora period)','Purchase aur sale bills','Kharche ke voucher / receipts','Pichhli balance sheet, agar ho','Loan / EMI details']
+      },
+      'Pvt Ltd Company Registration':{
+        f:[{k:'names',l:'Company ke naam (2-3 option likhein)',t:'area',ph:'1. …\n2. …\n3. …',req:1},
+           {k:'dir',l:'Kitne director honge',t:'sel',o:['2','3','4','5 ya zyada'],req:1},
+           {k:'state',l:'Registered office kis state me',t:'txt',ph:'Rajasthan',req:1},
+           {k:'cap',l:'Authorised capital',t:'sel',o:['1 lakh','5 lakh','10 lakh','10 lakh se zyada','Salah chahiye']},
+           {k:'kind',l:'Kya banana hai',t:'sel',o:['Private Limited','LLP','OPC (One Person Company)','Partnership firm','Salah chahiye'],req:1}],
+        d:['Sab directors ke PAN + Aadhaar','Passport size photo','Address proof (bijli bill / bank statement)','Office ka proof + NOC','Email aur mobile har director ka']
+      },
+      'Trademark Registration':{
+        f:[{k:'brand',l:'Brand / logo ka naam',t:'txt',ph:'Jaise: Sai Kripa',req:1},
+           {k:'what',l:'Kya register karana hai',t:'multi',o:['Naam (word mark)','Logo','Tagline','Naam + logo dono'],req:1},
+           {k:'biz',l:'Business kis cheez ka hai',t:'txt',ph:'Jaise: kapde ka business, sweets shop',req:1},
+           {k:'using',l:'Ye naam pehle se use kar rahe hain?',t:'sel',o:['Haan, kai saal se','Haan, kuch mahine se','Nahi, naya hai']},
+           {k:'cls',l:'Class pata hai?',t:'sel',o:YESNO}],
+        d:['Logo file (JPG / PNG, saaf)','PAN card','Aadhaar / business registration proof','MSME / Udyam certificate (fees kam ho jati hai)','Naam use karne ka proof — purana bill, agar ho']
+      },
+      'Loan Consultancy':{
+        f:[{k:'kind',l:'Kaunsa loan',t:'sel',o:['Business loan','Home loan','Loan against property','Machinery / equipment','Working capital / CC limit','Personal loan','Mudra loan'],req:1},
+           {k:'amt',l:'Kitna loan chahiye',t:'sel',o:['10 lakh se kam','10 - 50 lakh','50 lakh - 1 crore','1 crore se zyada'],req:1},
+           {k:'purp',l:'Kis kaam ke liye',t:'txt',ph:'Jaise: dukaan badhani hai'},
+           {k:'itr',l:'ITR kitne saal ki file hai',t:'sel',o:['3 saal ya zyada','2 saal','1 saal','Ek bhi nahi']}],
+        d:['ITR 2-3 saal ki','Bank statement (12 mahine)','PAN + Aadhaar','Business proof / GST certificate','Property papers, agar property par loan hai']
+      },
+      'ESI & PF Work':{
+        f:[{k:'need',l:'Kya kaam hai',t:'sel',o:['Nayi registration','Monthly return / challan','Dono chahiye','Employee add / exit','Notice ya inspection'],req:1},
+           {k:'emp',l:'Kitne employee hain',t:'sel',o:['10 se kam','10 - 20','20 - 50','50 se zyada'],req:1},
+           {k:'estb',l:'Establishment type',t:'sel',o:['Factory','Shop / showroom','Office','Contractor','Hotel / restaurant']},
+           {k:'code',l:'PF / ESI code (agar pehle se hai)',t:'txt'}],
+        d:['Firm ka PAN','Address proof','Employee list salary ke saath','Employee ke Aadhaar + bank details','Cancelled cheque','DSC, agar ho']
+      },
+      'Business Account Management':{
+        f:[{k:'biz',l:'Business type',t:'sel',o:['Proprietorship','Partnership','Pvt Ltd','LLP'],req:1},
+           {k:'need',l:'Kya kaam chahiye',t:'multi',o:['Bookkeeping','GST returns','TDS','Payroll / salary','Balance sheet','Sab kuch — poora account dekhna hai'],req:1},
+           {k:'turn',l:'Saalana turnover',t:'sel',o:TURN},
+           {k:'staff',l:'Abhi accountant hai?',t:'sel',o:YESNO}],
+        d:['Bank statement','Sale aur purchase bills','GST login details','Pichhli balance sheet','Salary register, agar staff hai']
+      },
+      'Project Report & CMA':{
+        f:[{k:'purp',l:'Kis liye chahiye',t:'sel',o:['Bank loan','Government subsidy','Investor ke liye','Tender ke liye'],req:1},
+           {k:'cost',l:'Project ki total cost',t:'sel',o:['10 lakh se kam','10 - 50 lakh','50 lakh - 2 crore','2 crore se zyada'],req:1},
+           {k:'ind',l:'Kis industry ka',t:'txt',ph:'Jaise: dairy, textile, hotel',req:1},
+           {k:'loan',l:'Bank se kitna loan maang rahe hain',t:'txt',ph:'Jaise: 40 lakh'},
+           {k:'bank',l:'Bank ka naam',t:'txt'}],
+        d:['ITR 2-3 saal ki','Existing financials / balance sheet','Machinery ka quotation','Land / building ke papers','Business plan, agar bana hua ho']
+      },
+      'Income Tax & GST Cases':{
+        f:[{k:'kind',l:'Kaunsa case hai',t:'sel',o:['Income Tax notice','GST notice','Scrutiny (143(2))','Appeal','Demand / recovery','Refund atka hua hai','Penalty'],req:1},
+           {k:'sec',l:'Notice me kaunsa section likha hai',t:'txt',ph:'Jaise: 143(1), 148, DRC-01'},
+           {k:'ndate',l:'Notice ki tarikh',t:'date'},
+           {k:'ddate',l:'Jawab dene ki last date',t:'date'},
+           {k:'amt',l:'Kitni amount ka mamla hai',t:'sel',o:['1 lakh se kam','1 - 10 lakh','10 - 50 lakh','50 lakh se zyada','Amount nahi hai']},
+           {k:'ay',l:'Kis saal ka (AY)',t:'txt',ph:'Jaise: 2023-24'}],
+        d:['Notice ki copy (sabse zaruri)','Us saal ki ITR / GST return','Books ya bank statement','Pehle bheja gaya jawab, agar ho','PAN / GSTIN']
+      },
+      '50 Lakh+ Case Handling':{
+        f:[{k:'kind',l:'Case ka type',t:'sel',o:['Income Tax scrutiny','GST demand','Search / survey ka case','Appeal (CIT-A / ITAT)','Reassessment (148)'],req:1},
+           {k:'amt',l:'Kitni amount ka mamla',t:'sel',o:['50 lakh - 1 crore','1 - 5 crore','5 crore se zyada'],req:1},
+           {k:'stage',l:'Abhi kis stage par hai',t:'sel',o:['Notice mila hai','Jawab de diya hai','Hearing chal rahi hai','Order aa gaya hai','Appeal me hai'],req:1},
+           {k:'hdate',l:'Agli hearing / last date',t:'date'},
+           {k:'ca',l:'Pehle kisi CA ne dekha hai?',t:'sel',o:YESNO}],
+        d:['Sab notices aur orders','Pichhle jawab aur submissions','Audited financials','Bank statements','Assessment order, agar aa gaya ho']
+      },
+      'Legal Advisory (LLB)':{
+        f:[{k:'kind',l:'Kis type ka mamla hai',t:'sel',o:['Tax se juda','Property / agreement','Partnership / company dispute','Cheque bounce / recovery','Consumer','Notice ka jawab','Kuch aur'],req:1},
+           {k:'brief',l:'Thoda batayein kya hua hai',t:'area',ph:'2-3 line me likh dein',req:1},
+           {k:'dline',l:'Koi last date hai?',t:'date'},
+           {k:'court',l:'Court / department me kuch chal raha hai?',t:'sel',o:YESNO}],
+        d:['Mamle se judey saare papers','Agreement / notice ki copy','Pehle bheja gaya jawab','ID proof']
+      }
+    };
+
+    var ENTITY=['Individual / Salaried','Proprietorship','Partnership firm','Pvt Ltd Company','LLP','HUF','Trust / Society'];
+    var SERVICES=Object.keys(FORMS);
+
+    var back=document.getElementById('rqBack'), panel=document.getElementById('rq');
+    var bd=document.getElementById('rqBd'), ft=document.getElementById('rqFt');
+    var title=document.getElementById('rqTitle'), sub=document.getElementById('rqSub');
+    var dots=panel.querySelectorAll('.rq-steps i');
+
+    var step=1, sending=false, data={}, service='', done=null;
+
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+    function fieldHTML(f){
+      var v=data[f.k], req=f.req?' <em>*</em>':'';
+      var h='<label class="rq-f" data-k="'+f.k+'"><span>'+esc(f.l)+req+'</span>';
+      if(f.t==='sel'){
+        h+='<select>'+'<option value="">— chunein —</option>'+
+          f.o.map(function(o){ return '<option '+(v===o?'selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>';
+      } else if(f.t==='multi'){
+        var picked=Array.isArray(v)?v:[];
+        h+='<span class="rq-chips">'+f.o.map(function(o){
+          return '<button type="button" class="'+(picked.indexOf(o)>=0?'on':'')+'" data-o="'+esc(o)+'">'+esc(o)+'</button>';
+        }).join('')+'</span>';
+      } else if(f.t==='area'){
+        h+='<textarea placeholder="'+esc(f.ph||'')+'">'+esc(v||'')+'</textarea>';
+      } else {
+        var it=f.t==='date'?'date':(f.t==='num'?'number':'text');
+        h+='<input type="'+it+'" placeholder="'+esc(f.ph||'')+'" value="'+esc(v||'')+'">';
+      }
+      return h+'</label>';
+    }
+
+    function err(m){ return m?'<div class="rq-err">'+esc(m)+'</div>':''; }
+
+    function render(msg){
+      var cfg=FORMS[service];
+      /* ---------- success screen ---------- */
+      if(done){
+        dots.forEach(function(d){ d.classList.add('on'); });
+        title.textContent='Request received';
+        sub.textContent='Reference '+done.ref;
+        bd.innerHTML='<div class="rq-ok"><div class="tick">✓</div>'+
+          '<h3>Ho gaya, '+esc((data.name||'').split(' ')[0]||'ji')+' 🙏</h3>'+
+          '<p>Aapki request '+esc(CT.firm||'Sai Kripa Group')+' ke office me pahunch gayi hai.<br>'+
+          esc(CT.owner||'')+' ya unki team <b>'+esc(CFG.RESPONSE_TIME||'24 working hours')+'</b> me aapko call karegi.</p>'+
+          '<div class="rq-ref"><span>Reference number</span><b>'+esc(done.ref)+'</b></div>'+
+          '<div class="rq-next">'+
+            '<a class="up" href="upload.html?t='+encodeURIComponent(done.token)+'">📎 Documents abhi upload kar dein</a>'+
+            '<a href="'+(CFG.waLink?CFG.waLink('Namaste! Meri website request ka reference '+done.ref+' hai ('+service+'). '):'#')+'" target="_blank" rel="noreferrer">WhatsApp par baat karein</a>'+
+          '</div>'+
+          '<p style="margin-top:16px;font-size:11.5px;color:#71768a">Reference number sambhal ke rakhein — baat karte waqt kaam aayega.</p></div>';
+        ft.innerHTML='<button type="button" class="pri" data-req-close>Theek hai, band karein</button>';
+        return;
+      }
+
+      dots.forEach(function(d,i){ d.classList.toggle('on', i<step); });
+      sub.textContent='Step '+step+' of 3';
+
+      /* ---------- step 1: service + kaun ---------- */
+      if(step===1){
+        title.textContent='Kya kaam karana hai?';
+        bd.innerHTML=err(msg)+
+          '<label class="rq-f" data-k="__svc"><span>Service <em>*</em></span><select>'+
+            SERVICES.map(function(s){ return '<option '+(service===s?'selected':'')+'>'+esc(s)+'</option>'; }).join('')+
+          '</select></label>'+
+          fieldHTML({k:'entity',l:'Aap kis type se kaam karte hain',t:'sel',o:ENTITY,req:1})+
+          '<div class="rq-docs"><b>Aage kya hoga</b><li>Is kaam se judey 3-4 sawaal</li><li>Aapka naam aur phone</li><li>Reference number turant mil jayega</li>'+
+          '<p>Koi payment nahi. Pehle baat, phir aage.</p></div>';
+        ft.innerHTML='<button type="button" data-req-close>Cancel</button><button type="button" class="pri" data-go="next">Aage badhein →</button>';
+        return;
+      }
+
+      /* ---------- step 2: service ke sawaal ---------- */
+      if(step===2){
+        title.textContent=service;
+        bd.innerHTML=err(msg)+cfg.f.map(fieldHTML).join('')+
+          '<div class="rq-docs"><b>Ye documents taiyar rakhein</b>'+
+          cfg.d.map(function(d){ return '<li>'+esc(d)+'</li>'; }).join('')+
+          '<p>Abhi bhejne ki zarurat nahi — form ke baad upload link mil jayega.</p></div>';
+        ft.innerHTML='<button type="button" data-go="back">← Peeche</button><button type="button" class="pri" data-go="next">Aage badhein →</button>';
+        return;
+      }
+
+      /* ---------- step 3: contact ---------- */
+      title.textContent='Aapse kaise sampark karein?';
+      bd.innerHTML=err(msg)+
+        fieldHTML({k:'name',l:'Aapka naam',t:'txt',ph:'Poora naam',req:1})+
+        fieldHTML({k:'phone',l:'WhatsApp number',t:'txt',ph:'10 digit ka mobile number',req:1})+
+        fieldHTML({k:'email',l:'Email (optional)',t:'txt',ph:'aapka@email.com'})+
+        fieldHTML({k:'urg',l:'Kitni jaldi chahiye',t:'sel',o:['Normal — aaram se','Urgent — last date aa rahi hai'],req:1})+
+        fieldHTML({k:'msg',l:'Kuch aur batana chahte hain? (optional)',t:'area',ph:'Jo baat zaruri lage'})+
+        '<p style="color:#71768a;font-size:11.5px;line-height:1.6;margin:0">Aapki detail sirf '+esc(CT.firm||'Sai Kripa Group')+' ke office panel me jati hai. Kisi ko share nahi hoti.</p>';
+      ft.innerHTML='<button type="button" data-go="back">← Peeche</button>'+
+        '<button type="button" class="pri" data-go="send"'+(sending?' disabled':'')+'>'+(sending?'Bhej rahe hain…':'Request bhejein')+'</button>';
+    }
+
+    /* screen par jo bhara hua hai use data me utaro */
+    function collect(){
+      bd.querySelectorAll('.rq-f').forEach(function(l){
+        var k=l.dataset.k, el=l.querySelector('input,select,textarea');
+        if(k==='__svc'){ if(el&&el.value&&el.value!==service){ service=el.value; } return; }
+        var chips=l.querySelector('.rq-chips');
+        if(chips){
+          data[k]=Array.prototype.map.call(chips.querySelectorAll('button.on'),function(b){ return b.dataset.o; });
+        } else if(el){ data[k]=el.value.trim(); }
+      });
+    }
+
+    function missing(list){
+      for(var i=0;i<list.length;i++){
+        var f=list[i]; if(!f.req) continue;
+        var v=data[f.k];
+        if(f.t==='multi'? !(v&&v.length) : !v) return f.l;
+      }
+      return null;
+    }
+
+    function submit(){
+      var url=String(CFG.SUPABASE_URL||'').replace(/\/+$/,'');
+      var key=String(CFG.SUPABASE_ANON_KEY||'');
+      var cfg=FORMS[service];
+
+      var answers={};
+      cfg.f.forEach(function(f){
+        var v=data[f.k];
+        if(v&&(!Array.isArray(v)||v.length)) answers[f.l]=Array.isArray(v)?v.join(', '):v;
+      });
+
+      var payload={
+        name:data.name, phone:data.phone, email:data.email||'',
+        entity:data.entity||'', service:service,
+        message:data.msg||'', answers:answers,
+        urgency:/Urgent/i.test(data.urg||'')?'urgent':'normal',
+        source:'website-form'
+      };
+
+      if(!url||!key||key.indexOf('PASTE_')===0){
+        render('Website ka database abhi set nahi hai. WhatsApp par bhej dein — number contact section me hai.');
+        sending=false; return;
+      }
+
+      sending=true; render();
+      fetch(url+'/rest/v1/rpc/submit_request',{
+        method:'POST',
+        headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},
+        body:JSON.stringify({payload:payload})
+      }).then(function(r){
+        return r.json().then(function(j){
+          if(!r.ok) throw new Error((j&&(j.message||j.error))||('HTTP '+r.status));
+          return j;
+        });
+      }).then(function(j){
+        if(!j||!j.ref) throw new Error('server ne reference nahi diya');
+        sending=false; done=j; render();
+      }).catch(function(e){
+        sending=false;
+        var m=String(e.message||'');
+        if(/invalid phone/i.test(m)) m='Phone number theek nahi lag raha. 10 digit ka mobile number likhein.';
+        else if(/too many/i.test(m)) m='Thodi der pehle hi request aa chuki hai. 10 minute baad koshish karein, ya seedha call kar lein.';
+        else m='Bhej nahi paye — internet check karke dobara koshish karein. Ya seedha WhatsApp/call kar lein.';
+        render(m);
+      });
+    }
+
+    function next(){
+      collect();
+      if(step===1){
+        var m=missing([{k:'entity',l:'Aap kis type se kaam karte hain',req:1,t:'sel'}]);
+        if(m) return render(m+' — ye batana zaruri hai');
+        step=2; return render();
+      }
+      if(step===2){
+        var m2=missing(FORMS[service].f);
+        if(m2) return render(m2+' — ye batana zaruri hai');
+        step=3; return render();
+      }
+      var m3=missing([{k:'name',l:'Aapka naam',req:1,t:'txt'},{k:'phone',l:'WhatsApp number',req:1,t:'txt'},{k:'urg',l:'Kitni jaldi chahiye',req:1,t:'sel'}]);
+      if(m3) return render(m3+' — ye batana zaruri hai');
+      if(!/^[6-9]\d{9}$/.test(String(data.phone||'').replace(/\D/g,'').replace(/^91(?=\d{10}$)/,'')))
+        return render('Phone number theek nahi lag raha. 10 digit ka mobile number likhein.');
+      submit();
+    }
+
+    function open(svc){
+      service=FORMS[svc]?svc:SERVICES[0];
+      step=1; done=null; sending=false;
+      render();
+      back.classList.add('on'); panel.classList.add('on');
+      document.body.style.overflow='hidden';
+    }
+    function close(){
+      back.classList.remove('on'); panel.classList.remove('on');
+      document.body.style.overflow='';
+      if(done){ done=null; data={}; step=1; }
+    }
+
+    document.addEventListener('click',function(e){
+      var o=e.target.closest('[data-req-open]');
+      if(o){ e.preventDefault(); open(o.dataset.service||''); return; }
+      if(e.target.closest('[data-req-close]')){ close(); return; }
+      var g=e.target.closest('[data-go]');
+      if(g&&panel.contains(g)){
+        if(g.dataset.go==='back'){ collect(); step=Math.max(1,step-1); render(); }
+        else next();
+        return;
+      }
+      var chip=e.target.closest('.rq-chips button');
+      if(chip&&panel.contains(chip)){ chip.classList.toggle('on'); collect(); }
+    });
+    /* service dropdown badalne par uske sawaal turant badal jate hain */
+    bd.addEventListener('change',function(e){
+      var l=e.target.closest('.rq-f');
+      if(l&&l.dataset.k==='__svc'){ collect(); render(); }
+    });
+    addEventListener('keydown',function(e){ if(e.key==='Escape'&&panel.classList.contains('on')) close(); });
+  })();
+  </script>
+
   <!-- ================= AI chat widget ================= -->
   <button class="cw-bub" data-chat-open aria-label="Chat khol dein">💬<span></span></button>
 
@@ -649,12 +1064,11 @@
     </div>
   </div>
 
-  <script src="config.js"></script>
   <script>
   (function(){
     'use strict';
     var CFG=window.SKG||{};
-    var WA='919887705993';
+    var WA=CFG.WA_NUMBER||'';
     var GREET='Namaste 🙏 Sai Kripa Group me aapka swagat hai.\n\nBataiye kya kaam hai — ITR, GST, notice/case, registration… kuch bhi poochh lijiye.';
     var QUICK=['ITR file karani hai','GST ka kaam hai','Notice aaya hai','Pvt Ltd registration','Trademark','ESI & PF'];
 
@@ -715,18 +1129,20 @@
       var userMsgs=msgs.filter(function(m){ return m.role==='user'; }).map(function(m){ return m.content; });
       var guess=userMsgs.filter(function(t){ return !/\d/.test(t)&&t.length<=32; })
                         .sort(function(a,b){ return a.length-b.length; })[0];
-      fetch(url+'/rest/v1/leads',{
+      /* Chat bhi wahi submit_request() use karta hai jo form use karta hai —
+         ek hi raasta, phone verify aur spam brake ke saath. */
+      fetch(url+'/rest/v1/rpc/submit_request',{
         method:'POST',
-        headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json',
-                 'Prefer':'return=minimal'},
-        body:JSON.stringify({
+        headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},
+        body:JSON.stringify({payload:{
           name:(guess||'Website visitor').slice(0,80),
           phone:phone,
-          service:(userMsgs[0]||'').slice(0,120),
+          service:(userMsgs[0]||'Chat inquiry').slice(0,120),
           message:transcript(),
           source:'website-chat'
-        })
-      }).catch(function(e){ console.error('lead save fail',e); leadSaved=false; });
+        }})
+      }).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); })
+        .catch(function(e){ console.error('lead save fail',e); leadSaved=false; });
     }
 
     function ask(text){
