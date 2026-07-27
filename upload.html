@@ -71,6 +71,7 @@
 (function(){
 'use strict';
 var CFG=window.SKG||{};
+var PH=(CFG.pretty?CFG.pretty(CFG.WA_NUMBER):'')||'';
 var URL_=String(CFG.SUPABASE_URL||'').replace(/\/+$/,'');
 var KEY=String(CFG.SUPABASE_ANON_KEY||'');
 var BUCKET='docs';
@@ -107,7 +108,7 @@ function rpc(fn,args){
 function bad(title,detail){
   stage.innerHTML='<div class="msg err"><b>'+esc(title)+'</b><br>'+esc(detail||'')+'</div>'+
     '<p class="hint">Sai Kripa Group ko WhatsApp par bata dein — naya link bhej denge.<br>'+
-    '<b>98877 05993</b></p>';
+    '<b>'+esc(PH)+'</b></p>';
 }
 
 /* ---------- link check ---------- */
@@ -228,7 +229,7 @@ function send(){
     go.textContent='Bhejein';
     if(failN&&!doneN){
       stage.insertAdjacentHTML('afterbegin',
-        '<div class="msg err"><b>Bhej nahi paye</b><br>Internet check karke dobara koshish karein, ya seedha WhatsApp par bhej dein — <b>98877 05993</b></div>');
+        '<div class="msg err"><b>Bhej nahi paye</b><br>Internet check karke dobara koshish karein, ya seedha WhatsApp par bhej dein — <b>'+esc(PH)+'</b></div>');
       go.disabled=false;
     } else {
       stage.innerHTML='<div class="msg ok"><b>✅ Ho gaya — '+doneN+' file pahunch gayi'+
@@ -236,7 +237,7 @@ function send(){
         'Kuch aur chahiye hoga to WhatsApp par bata denge.</div>'+
         '<div class="box center"><b style="color:var(--gold-l)">Dhanyavaad 🙏</b><br>'+
         '<span style="color:var(--mut);font-size:13px">'+esc(clientName)+'</span></div>'+
-        '<p class="hint">Aur file bhejni ho to isi link ko dobara khol lein.<br><b>98877 05993</b></p>';
+        '<p class="hint">Aur file bhejni ho to isi link ko dobara khol lein.<br><b>'+esc(PH)+'</b></p>';
     }
   });
 }
