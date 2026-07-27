@@ -45,9 +45,9 @@ All phone numbers and the email live in **`config.js`** under `CONTACT`.
 Edit `whatsapp` / `numbers` / `email` there and the whole site, the office
 panel and the upload page pick it up automatically.
 
-Two files are static and must be edited by hand if the number changes:
-- `manifest.webmanifest` — the PWA "WhatsApp" shortcut
-- `src/worker.js` — the number the AI chat assistant quotes
+The AI chat assistant reads its copy from `wrangler.jsonc` → `vars`
+(`WA_NUMBER`, `FIRM_EMAIL`, `FIRM_OWNER`), so changing the number means
+editing **`config.js` and `wrangler.jsonc`** — two files, no code.
 
 Current:
 - Phone / WhatsApp: 98877 05993 · 92148 62726 · 92616 26392

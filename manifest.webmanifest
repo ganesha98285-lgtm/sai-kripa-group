@@ -19,6 +19,6 @@
   ],
   "shortcuts": [
     { "name": "Office Panel", "url": "/office.html", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "WhatsApp", "url": "https://wa.me/919887705993" }
+    { "name": "New request", "url": "/?app=site#services" }
   ]
 }
