@@ -816,7 +816,7 @@ function clientForm(id){
     '<label class="f"><span>Naam *</span><input id="f_name" value="'+esc(c.name)+'" placeholder="Client ka naam / firm name"></label>'+
     '<div class="f2">'+
       '<label class="f"><span>Type</span><select id="f_entity">'+['Individual','Proprietorship','Partnership','Pvt Ltd','LLP','HUF','Trust/Society'].map(function(x){ return '<option '+(c.entity===x?'selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'+
-      '<label class="f"><span>Phone (WhatsApp)</span><input id="f_phone" inputmode="tel" value="'+esc(c.phone)+'" placeholder="98877 05993"></label>'+
+      '<label class="f"><span>Phone (WhatsApp)</span><input id="f_phone" inputmode="tel" value="'+esc(c.phone)+'" placeholder="10 digit mobile number"></label>'+
       '<label class="f"><span>PAN</span><input id="f_pan" value="'+esc(c.pan)+'" style="text-transform:uppercase"></label>'+
       '<label class="f"><span>GSTIN</span><input id="f_gstin" value="'+esc(c.gstin)+'" style="text-transform:uppercase"></label>'+
     '</div>'+

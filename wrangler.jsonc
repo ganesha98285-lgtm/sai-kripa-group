@@ -17,6 +17,13 @@
   "ai": {
     "binding": "AI"
   },
+  // Contact details jo AI bot bolta hai. Number badalna ho to yahan aur
+  // config.js me — bas do jagah. Code chhedne ki zarurat nahi.
+  "vars": {
+    "WA_NUMBER": "98877 05993",
+    "FIRM_EMAIL": "Kripasai2017@gmail.com",
+    "FIRM_OWNER": "Pramod Kumar Sharma"
+  },
   "observability": {
     "enabled": true
   }
